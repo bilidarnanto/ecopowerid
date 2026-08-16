@@ -113,6 +113,7 @@ Proyek kini **100% berjalan via Docker**; tidak ada proses Node di host:
 | Akses publik | **`https://nasbpfsby.duckdns.org:8444`** (via nextcloud_nginx); `:3000` publik sudah ditutup |
 | `.env` | `ADMIN_PASSWORD` & `SESSION_SECRET` terisi (kuat); `DATABASE_URL` di-override compose ke `db:5432` |
 | Git | ter-push ke `bestprofitsurabaya/ecopowerid` (branch `main`); working tree bersih |
+| Commit terakhir | `e508516` — hardening keamanan (rate-limit login, validasi upload galeri) |
 
 ## 3. Perintah yang Sering Dipakai
 
@@ -164,11 +165,13 @@ npx tsc --noEmit
 - [x] **Hardening keamanan** — ✅ rate-limit login (5x/15 mnt + lockout), validasi magic-bytes
       upload galeri + larang SVG, `nosniff` di route uploads. Tersisa opsional: CSP/HSTS level
       situs, proteksi `docker-entrypoint.sh` seed agar tidak jalan tiap start.
+- [x] **README** — ✅ diperbarui lengkap: akses produksi (domain:8444), topologi server, verifikasi
+      cepat, keamanan (rate-limit, validasi upload), peta file, catatan prisma trace.
+- [x] **`.env.example`** — ✅ terverifikasi lengkap: semua variabel yang dibaca kode
+      (`process.env.*`) sudah ada di template; `.env` riil tidak punya kunci ekstra.
 - [ ] **Backup DB terjadwal** — `pg_dump` volume `pgdata` (mis. cron harian), karena data admin
       (harga, penawaran, galeri) hanya ada di DB.
-- [ ] **README** — tambahkan bagian deployment produksi (compose, router, restore backup).
 - [ ] **AI saran harga** — belum dikonfigurasi (butuh `AI_API_KEY`/Ollama); cek apakah mau diisi.
-- [ ] Periksa `.env.example` apakah masih sesuai semua variabel yang dibaca kode.
 
 ## 6. Peta File Penting
 
