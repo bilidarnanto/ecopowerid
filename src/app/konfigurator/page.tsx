@@ -1,7 +1,11 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { VEHICLE_CONFIGS, type VehicleType } from "@/lib/configurator-data";
+import {
+  VEHICLE_CONFIGS,
+  getPackageCompare,
+  type VehicleType,
+} from "@/lib/configurator-data";
 import {
   buildRab,
   buildProvider,
@@ -20,6 +24,7 @@ import { RabTable } from "@/components/RabTable";
 import { RabPdfButton } from "@/components/RabPdfButton";
 import { QuoteModal } from "@/components/QuoteModal";
 import { VehicleSketch } from "@/components/VehicleSketch";
+import { PackageCompareModal } from "@/components/PackageCompareModal";
 
 const STEP_KEYS = ["stepVehicle", "stepPackage", "stepOptions", "stepEnergy", "stepReview"] as const;
 
@@ -38,6 +43,7 @@ export default function ConfiguratorPage() {
   const [manualDailyWh, setManualDailyWh] = useState<number | null>(null);
   const [manualPeakW, setManualPeakW] = useState<number | null>(null);
   const [quoteOpen, setQuoteOpen] = useState(false);
+  const [compareOpen, setCompareOpen] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -88,6 +94,7 @@ export default function ConfiguratorPage() {
 
   const vehicle = vehicleType ? VEHICLE_CONFIGS.find((v) => v.type === vehicleType) : null;
   const isPltsOnly = vehicleType === "plts";
+  const compare = vehicleType ? getPackageCompare(vehicleType) : null;
 
   function selectVehicle(v: VehicleType) {
     setVehicleType(v);
@@ -212,6 +219,29 @@ export default function ConfiguratorPage() {
                 </div>
               </div>
             )}
+
+            {/* Total berjalan — live selama konfigurasi */}
+            {rab && step > 0 && (
+              <div className="mt-4 rounded-xl bg-slate-900 p-4 text-white">
+                <div className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+                  {t.configurator.liveTotal}
+                </div>
+                <div className="mt-1 text-2xl font-extrabold text-emerald-400">
+                  {formatIDR(rab.totals.total)}
+                </div>
+                <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-white/10 pt-2 text-[11px] text-slate-300">
+                  <span>
+                    {t.rab.subtotalLabel}: {formatIDR(rab.totals.subtotal)}
+                  </span>
+                  {rab.totals.weightKg > 0 && (
+                    <span>
+                      {t.configurator.estimatedWeight}: ≈{" "}
+                      {rab.totals.weightKg.toLocaleString("id-ID")} {t.configurator.weightSuffix}
+                    </span>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
         </aside>
 
@@ -250,17 +280,28 @@ export default function ConfiguratorPage() {
               .filter((g) => g.key !== "addons")
               .map((g) => (
                 <div key={g.key}>
-                  <h3 className="text-base font-bold text-slate-900">
-                    {lang === "id" ? g.labelId : g.labelEn}
-                  </h3>
+                  <div className="flex items-center justify-between gap-2">
+                    <h3 className="text-base font-bold text-slate-900">
+                      {lang === "id" ? g.labelId : g.labelEn}
+                    </h3>
+                    {g.key === "package" && compare && (
+                      <button
+                        onClick={() => setCompareOpen(true)}
+                        className="rounded-lg border border-slate-300 px-3 py-1 text-xs font-semibold text-slate-600 hover:bg-slate-50"
+                      >
+                        ⚖️ {t.configurator.comparePackages}
+                      </button>
+                    )}
+                  </div>
                   <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                     {g.options.map((opt) => {
                       const selected = groupValue(g.key) === opt.code;
+                      const comp = provider?.byCode(opt.code);
                       return (
                         <button
                           key={opt.code}
                           onClick={() => groupSetter(g.key, opt.code)}
-                          className={`rounded-xl border-2 p-4 text-left transition-all ${
+                          className={`relative rounded-xl border-2 p-4 text-left transition-all ${
                             selected
                               ? "border-emerald-500 bg-emerald-50 shadow-sm"
                               : "border-slate-200 hover:border-slate-300"
@@ -271,7 +312,7 @@ export default function ConfiguratorPage() {
                               {lang === "id" ? opt.labelId : opt.labelEn}
                             </span>
                             {selected && (
-                              <span className="flex h-5 w-5 items-center justify-center rounded-full bg-emerald-600 text-[10px] text-white">
+                              <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-emerald-600 text-[10px] text-white">
                                 ✓
                               </span>
                             )}
@@ -280,6 +321,13 @@ export default function ConfiguratorPage() {
                             <p className="mt-1.5 text-xs leading-relaxed text-slate-500">
                               {lang === "id" ? opt.descId : opt.descEn}
                             </p>
+                          )}
+                          {comp && (
+                            <div className="mt-2 border-t border-slate-100 pt-2">
+                              <div className="text-sm font-bold text-slate-800">
+                                {formatIDR(comp.price)}
+                              </div>
+                            </div>
                           )}
                         </button>
                       );
@@ -303,6 +351,7 @@ export default function ConfiguratorPage() {
                   <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                     {g.options.map((opt) => {
                       const selected = addonCodes.includes(opt.code);
+                      const comp = provider?.byCode(opt.code);
                       return (
                         <button
                           key={opt.code}
@@ -318,7 +367,7 @@ export default function ConfiguratorPage() {
                               {lang === "id" ? opt.labelId : opt.labelEn}
                             </span>
                             {selected && (
-                              <span className="flex h-5 w-5 items-center justify-center rounded-full bg-emerald-600 text-[10px] text-white">
+                              <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-emerald-600 text-[10px] text-white">
                                 ✓
                               </span>
                             )}
@@ -327,6 +376,13 @@ export default function ConfiguratorPage() {
                             <p className="mt-1.5 text-xs leading-relaxed text-slate-500">
                               {lang === "id" ? opt.descId : opt.descEn}
                             </p>
+                          )}
+                          {comp && (
+                            <div className="mt-2 border-t border-slate-100 pt-2">
+                              <div className="text-sm font-bold text-slate-800">
+                                {formatIDR(comp.price)}
+                              </div>
+                            </div>
                           )}
                         </button>
                       );
@@ -391,6 +447,13 @@ export default function ConfiguratorPage() {
                   ☀️ {t.configurator.systemSummary}
                 </span>
               </label>
+            )}
+
+            {/* Sizing PLTS live — muncul langsung saat pilih peralatan */}
+            {pltsResult && (
+              <div className="mt-5">
+                <PltsSummary plts={pltsResult} />
+              </div>
             )}
           </div>
         )}
@@ -542,6 +605,19 @@ export default function ConfiguratorPage() {
         vehicleType={vehicleType ?? "campervan"}
         config={state}
       />
+
+      {compare && (
+        <PackageCompareModal
+          open={compareOpen}
+          onClose={() => setCompareOpen(false)}
+          vehicleType={vehicleType ?? "campervan"}
+          compare={compare}
+          onSelect={(code) => {
+            setPackageCode(code);
+            setCompareOpen(false);
+          }}
+        />
+      )}
     </div>
   );
 }

@@ -1,8 +1,8 @@
 "use client";
 
 import { useMemo } from "react";
-import { RAB_GROUPS, type Rab } from "@/lib/rab";
-import { formatIDR } from "@/lib/format";
+import { RAB_GROUPS, formatSpecs, type Rab } from "@/lib/rab";
+import { formatIDR, formatNumber } from "@/lib/format";
 import { useI18n } from "@/lib/i18n/provider";
 
 const GROUP_LABEL_KEY: Record<(typeof RAB_GROUPS)[number], keyof typeof import("@/lib/i18n/dictionaries").id.rab> = {
@@ -48,25 +48,42 @@ export function RabTable({ rab, compact = false }: { rab: Rab; compact?: boolean
                 {g.label}
               </td>
             </tr>
-            {g.lines.map((l, i) => (
-              <tr key={l.id} className="border-b border-slate-100 hover:bg-slate-50">
-                <td className="px-3 py-2 text-slate-500">{i + 1}</td>
-                <td className="px-3 py-2 font-medium text-slate-800">
-                  {lang === "id" ? l.nameId : l.nameEn}
-                  {l.code && (
-                    <span className="ml-1 text-[11px] text-slate-400">({l.code})</span>
-                  )}
-                </td>
-                <td className="px-3 py-2 text-xs text-slate-500">{l.spec}</td>
-                <td className="px-3 py-2 text-right text-slate-700">
-                  {l.qty.toLocaleString("id-ID")} {l.unit}
-                </td>
-                <td className="px-3 py-2 text-right text-slate-700">{formatIDR(l.price)}</td>
-                <td className="px-3 py-2 text-right font-semibold text-slate-800">
-                  {formatIDR(l.subtotal)}
-                </td>
-              </tr>
-            ))}
+            {g.lines.map((l, i) => {
+              const specChips = formatSpecs(l.specs, lang);
+              return (
+                <tr key={l.id} className="border-b border-slate-100 hover:bg-slate-50">
+                  <td className="px-3 py-2 text-slate-500">{i + 1}</td>
+                  <td className="px-3 py-2 font-medium text-slate-800">
+                    {lang === "id" ? l.nameId : l.nameEn}
+                    {l.code && (
+                      <span className="ml-1 text-[11px] text-slate-400">({l.code})</span>
+                    )}
+                  </td>
+                  <td className="px-3 py-2 text-xs text-slate-500">
+                    {l.spec && <div className="mb-0.5 text-slate-600">{l.spec}</div>}
+                    {specChips.length > 0 && (
+                      <span className="flex flex-wrap gap-1">
+                        {specChips.map((chip) => (
+                          <span
+                            key={chip}
+                            className="rounded-md bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-600"
+                          >
+                            {chip}
+                          </span>
+                        ))}
+                      </span>
+                    )}
+                  </td>
+                  <td className="px-3 py-2 text-right text-slate-700">
+                    {l.qty.toLocaleString("id-ID")} {l.unit}
+                  </td>
+                  <td className="px-3 py-2 text-right text-slate-700">{formatIDR(l.price)}</td>
+                  <td className="px-3 py-2 text-right font-semibold text-slate-800">
+                    {formatIDR(l.subtotal)}
+                  </td>
+                </tr>
+              );
+            })}
             <tr className="border-b border-slate-200 bg-slate-50/70">
               <td colSpan={5} className="px-3 py-1.5 text-right text-xs font-semibold text-slate-500">
                 {t.rab.subtotalLabel} {g.label}
@@ -78,6 +95,16 @@ export function RabTable({ rab, compact = false }: { rab: Rab; compact?: boolean
           </tbody>
         ))}
         <tfoot>
+          {rab.totals.weightKg > 0 && (
+            <tr>
+              <td colSpan={5} className="px-3 py-1 text-right text-slate-600">
+                {t.rab.weightTotalLabel}
+              </td>
+              <td className="px-3 py-1 text-right font-semibold text-slate-700">
+                ≈ {formatNumber(rab.totals.weightKg)} kg
+              </td>
+            </tr>
+          )}
           <tr className="border-t-2 border-slate-300">
             <td colSpan={5} className="px-3 py-2 text-right text-slate-600">{t.rab.subtotalLabel}</td>
             <td className="px-3 py-2 text-right font-semibold">{formatIDR(rab.totals.subtotal)}</td>

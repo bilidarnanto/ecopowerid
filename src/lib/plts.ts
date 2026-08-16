@@ -21,6 +21,8 @@ export type PltsLine = {
   unit: string;
   qty: number;
   price: number; // harga satuan IDR
+  specs?: Record<string, unknown> | null;
+  weightKg?: number;
 };
 
 export type PltsInput = {
@@ -146,6 +148,8 @@ export function calculatePlts(
   ) => {
     const c = get(code);
     if (!c) return;
+    const weightKg =
+      typeof c.specs?.weightKg === "number" ? (c.specs.weightKg as number) : undefined;
     lines.push({
       code: c.code,
       nameId: c.nameId,
@@ -154,6 +158,8 @@ export function calculatePlts(
       unit: c.unit || unit,
       qty,
       price: c.price,
+      specs: c.specs ?? null,
+      weightKg,
     });
   };
 
@@ -258,5 +264,7 @@ export function pltsLinesToRab(lines: PltsLine[]) {
     qty: l.qty,
     price: l.price,
     subtotal: l.qty * l.price,
+    specs: l.specs ?? null,
+    weightKg: l.weightKg,
   }));
 }

@@ -344,6 +344,84 @@ export const VEHICLE_CONFIGS: VehicleConfig[] = [
   },
 ];
 
+// ------------------------------------------------------------------
+// Perbandingan paket (STD / DLX / PRM) per tipe kendaraan
+// ------------------------------------------------------------------
+
+export type PackageTier = "std" | "dlx" | "prm";
+
+export type PackageFeatureRow = {
+  featureId: string;
+  labelId: string;
+  labelEn: string;
+  tiers: Partial<Record<PackageTier, boolean>>;
+};
+
+export type PackageCompare = {
+  tiers: { key: PackageTier; codePrefix: string; labelId: string; labelEn: string }[];
+  features: PackageFeatureRow[];
+};
+
+const VEHICLE_COMPARE: Record<Exclude<VehicleType, "plts">, PackageCompare> = {
+  campervan: {
+    tiers: [
+      { key: "std", codePrefix: "CV-PKG-STD", labelId: "Standard", labelEn: "Standard" },
+      { key: "dlx", codePrefix: "CV-PKG-DLX", labelId: "Deluxe", labelEn: "Deluxe" },
+      { key: "prm", codePrefix: "CV-PKG-PRM", labelId: "Premium", labelEn: "Premium" },
+    ],
+    features: [
+      { featureId: "insul", labelId: "Isolasi dinding & atap", labelEn: "Wall & roof insulation", tiers: { std: true, dlx: true, prm: true } },
+      { featureId: "panel", labelId: "Panel interior dasar", labelEn: "Basic interior panels", tiers: { std: true, dlx: true, prm: true } },
+      { featureId: "elec", labelId: "Kelistrikan dasar (baterai + charger)", labelEn: "Basic electrical (battery + charger)", tiers: { std: true, dlx: true, prm: true } },
+      { featureId: "window", labelId: "Jendela bukaan", labelEn: "Opening windows", tiers: { std: true, dlx: true, prm: true } },
+      { featureId: "led", labelId: "Pencahayaan LED", labelEn: "LED lighting", tiers: { std: false, dlx: true, prm: true } },
+      { featureId: "finish", labelId: "Finishing premium (HPL/aksen)", labelEn: "Premium finish (HPL/accent)", tiers: { std: false, dlx: true, prm: true } },
+      { featureId: "rack", labelId: "Roof rack", labelEn: "Roof rack", tiers: { std: false, dlx: true, prm: true } },
+      { featureId: "water", labelId: "Sistem air lengkap + pemanas air", labelEn: "Full water system + water heater", tiers: { std: false, dlx: false, prm: true } },
+      { featureId: "sound", labelId: "Soundproofing", labelEn: "Soundproofing", tiers: { std: false, dlx: false, prm: true } },
+    ],
+  },
+  motorhome: {
+    tiers: [
+      { key: "std", codePrefix: "MH-PKG-STD", labelId: "Standard", labelEn: "Standard" },
+      { key: "dlx", codePrefix: "MH-PKG-DLX", labelId: "Deluxe", labelEn: "Deluxe" },
+      { key: "prm", codePrefix: "MH-PKG-PRM", labelId: "Premium", labelEn: "Premium" },
+    ],
+    features: [
+      { featureId: "insul", labelId: "Isolasi penuh", labelEn: "Full insulation", tiers: { std: true, dlx: true, prm: true } },
+      { featureId: "interior", labelId: "Interior + furnitur", labelEn: "Interior + furniture", tiers: { std: true, dlx: true, prm: true } },
+      { featureId: "elec", labelId: "Kelistrikan dasar", labelEn: "Basic electrical", tiers: { std: true, dlx: true, prm: true } },
+      { featureId: "sanitasi", labelId: "Sanitasi dasar", labelEn: "Basic sanitation", tiers: { std: true, dlx: true, prm: true } },
+      { featureId: "finish", labelId: "Finishing premium", labelEn: "Premium finish", tiers: { std: false, dlx: true, prm: true } },
+      { featureId: "water", labelId: "Sistem air lengkap", labelEn: "Full water system", tiers: { std: false, dlx: true, prm: true } },
+      { featureId: "bath", labelId: "Kamar mandi basah", labelEn: "Wet bathroom", tiers: { std: false, dlx: false, prm: true } },
+      { featureId: "acmulti", labelId: "AC multi-zona", labelEn: "Multi-zone AC", tiers: { std: false, dlx: false, prm: true } },
+      { featureId: "smart", labelId: "Smart home system", labelEn: "Smart home system", tiers: { std: false, dlx: false, prm: true } },
+    ],
+  },
+  foodtruck: {
+    tiers: [
+      { key: "std", codePrefix: "FT-PKG-STD", labelId: "Standard", labelEn: "Standard" },
+      { key: "dlx", codePrefix: "FT-PKG-DLX", labelId: "Deluxe", labelEn: "Deluxe" },
+      { key: "prm", codePrefix: "FT-PKG-PRM", labelId: "Premium", labelEn: "Premium" },
+    ],
+    features: [
+      { featureId: "body", labelId: "Body + meja stainless", labelEn: "Body + stainless counter", tiers: { std: true, dlx: true, prm: true } },
+      { featureId: "etalase", labelId: "Etalase display", labelEn: "Display case", tiers: { std: true, dlx: true, prm: true } },
+      { featureId: "elec", labelId: "Kelistrikan dasar", labelEn: "Basic electrical", tiers: { std: true, dlx: true, prm: true } },
+      { featureId: "hood", labelId: "Exhaust hood", labelEn: "Exhaust hood", tiers: { std: false, dlx: true, prm: true } },
+      { featureId: "wastafel", labelId: "Wastafel + storage lengkap", labelEn: "Sink + full storage", tiers: { std: false, dlx: true, prm: true } },
+      { featureId: "branding", labelId: "Finishing branding", labelEn: "Branded finish", tiers: { std: false, dlx: false, prm: true } },
+      { featureId: "sign", labelId: "LED signage", labelEn: "LED signage", tiers: { std: false, dlx: false, prm: true } },
+      { featureId: "sound", labelId: "Sound system", labelEn: "Sound system", tiers: { std: false, dlx: false, prm: true } },
+    ],
+  },
+};
+
+export function getPackageCompare(type: VehicleType): PackageCompare | null {
+  return VEHICLE_COMPARE[type as Exclude<VehicleType, "plts">] ?? null;
+}
+
 export const VEHICLE_MAP = new Map(VEHICLE_CONFIGS.map((v) => [v.type, v]));
 
 // Preset kebutuhan energi untuk tipe PLTS rumahan (Wh/hari)

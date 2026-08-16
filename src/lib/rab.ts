@@ -43,6 +43,10 @@ export type RabLine = {
   qty: number;
   price: number;
   subtotal: number;
+  /** Spesifikasi teknis komponen (dari katalog) untuk detail RAB */
+  specs?: Record<string, unknown> | null;
+  /** Berat per unit (kg) — dipakai menghitung estimasi berat total */
+  weightKg?: number;
 };
 
 export type RabTotals = {
@@ -52,6 +56,8 @@ export type RabTotals = {
   ppnPct: number;
   ppn: number;
   total: number;
+  /** Estimasi berat total (kg) dari semua komponen */
+  weightKg: number;
 };
 
 export type Rab = {
@@ -163,7 +169,9 @@ export function buildRab(
     spec: string,
     unit: string,
     qty: number,
-    price: number
+    price: number,
+    specs?: Record<string, unknown> | null,
+    weightKg?: number
   ) => {
     counter += 1;
     lines.push({
@@ -177,13 +185,17 @@ export function buildRab(
       qty,
       price,
       subtotal: Math.round(qty * price),
+      specs,
+      weightKg,
     });
   };
 
   const pushComponent = (code: string, group: RabGroup, spec = "", qty = 1) => {
     const c = catalog.byCode(code);
     if (!c) return;
-    addLine(c.code, group, c.nameId, c.nameEn, spec, c.unit, qty, c.price);
+    const weightKg =
+      typeof c.specs?.weightKg === "number" ? (c.specs.weightKg as number) : undefined;
+    addLine(c.code, group, c.nameId, c.nameEn, spec, c.unit, qty, c.price, c.specs, weightKg);
   };
 
   if (state.vehicleType !== "plts") {
@@ -215,10 +227,53 @@ export function applyTotals(lines: RabLine[]): Rab {
   const ppnPct = siteConfig.includePpn ? siteConfig.ppnPct : 0;
   const ppn = Math.round((subtotal + margin) * (ppnPct / 100));
   const total = subtotal + margin + ppn;
-  return { lines, totals: { subtotal, marginPct, margin, ppnPct, ppn, total } };
+  const weightKg = Math.round(
+    lines.reduce((s, l) => s + (l.weightKg ?? 0) * l.qty, 0)
+  );
+  return { lines, totals: { subtotal, marginPct, margin, ppnPct, ppn, total, weightKg } };
 }
 
 /** RAB murni PLTS (halaman kalkulator mandiri) */
 export function buildPltsRab(plts: PltsResult): Rab {
   return applyTotals(pltsLinesToRab(plts.lines));
+}
+
+// ------------------------------------------------------------------
+// Format spesifikasi teknis untuk ditampilkan di RAB
+// ------------------------------------------------------------------
+
+const SPEC_LABELS: { key: string; labelId: string; labelEn: string }[] = [
+  { key: "wp", labelId: "Wp", labelEn: "Wp" },
+  { key: "ah", labelId: "Ah", labelEn: "Ah" },
+  { key: "watts", labelId: "W", labelEn: "W" },
+  { key: "powerW", labelId: "W", labelEn: "W" },
+  { key: "amps", labelId: "A", labelEn: "A" },
+  { key: "voltage", labelId: "V", labelEn: "V" },
+  { key: "weightKg", labelId: "kg", labelEn: "kg" },
+  { key: "capacity", labelId: "org", labelEn: "ppl" },
+  { key: "capacityL", labelId: "L", labelEn: "L" },
+  { key: "burners", labelId: "tungku", labelEn: "burners" },
+  { key: "screenInch", labelId: 'in', labelEn: 'in' },
+  { key: "lengthM", labelId: "m", labelEn: "m" },
+  { key: "loadCapacityKg", labelId: "kg", labelEn: "kg" },
+  { key: "workDays", labelId: "hari kerja", labelEn: "work days" },
+  { key: "warrantyMonths", labelId: "bln garansi", labelEn: "mo warranty" },
+];
+
+/** Ubah objek specs (mis. { wp: 450, weightKg: 24 }) jadi chip teks singkat */
+export function formatSpecs(
+  specs: Record<string, unknown> | null | undefined,
+  lang: "id" | "en"
+): string[] {
+  if (!specs) return [];
+  const chips: string[] = [];
+  for (const { key, labelId, labelEn } of SPEC_LABELS) {
+    const v = specs[key];
+    if (typeof v !== "number" && typeof v !== "string") continue;
+    // skip nol/kosong (mis. capacity 0 untuk custom layout)
+    if (typeof v === "number" && v === 0) continue;
+    if (typeof v === "string" && v.trim() === "") continue;
+    chips.push(`${v} ${lang === "id" ? labelId : labelEn}`.trim());
+  }
+  return chips;
 }

@@ -98,6 +98,29 @@ Proyek kini **100% berjalan via Docker**; tidak ada proses Node di host:
   (password benar pun ditolak saat lockout); upload HTML palsu ber-MIME `image/jpeg`
   → 400; upload SVG → 400; PNG asli → 200. Header `nosniff` terverifikasi pada respon.
 
+### 1.8 Upgrade UI/UX Configurator: Detail Teknis & RAB Kaya Fitur ✅
+Lima fitur dikerjakan sekaligus (atas permintaan user):
+1. **Harga & total live** — setiap kartu pilihan (paket/layout/material/add-on) kini
+   menampilkan harga dari katalog; panel pratinjau punya kotak **"Total Berjalan"**
+   gelap (subtotal + estimasi berat) yang ter-update real-time selama konfigurasi.
+2. **Detail teknis di RAB** — `RabLine` & `PltsLine` kini membawa `specs` + `weightKg`;
+   `RabTotals` punya `weightKg` (estimasi berat total). `RabTable` menampilkan
+   **chip spesifikasi** (Wp, Ah, V, W, kg, L, tungku, hari kerja, garansi, dll) per baris
+   + baris "Estimasi Berat Total". Helper baru `formatSpecs()` di `rab.ts`.
+3. **Perbandingan paket** — data matriks fitur STD/DLX/PRM per tipe di
+   `configurator-data.ts` (`getPackageCompare`); tombol "⚖️ Bandingkan Paket" di grup
+   paket membuka **`PackageCompareModal.tsx`** (tabel fitur ✓/— + tombol pilih langsung).
+4. **Sizing PLTS live** — di step kebutuhan listrik, `PltsSummary` muncul langsung
+   begitu peralatan dipilih (sebelumnya hanya di step akhir).
+5. **Data teknis seed lengkap** — semua komponen non-PLTS kini punya `specs`
+   (weightKg, powerW, capacityL, burners, screenInch, workDays, warrantyMonths, dll);
+   komponen PLTS dapat `weightKg` + `dimsCm`/`cycles`. Seed **backfill aman**: hanya
+   mengisi `specs` yang masih kosong pada komponen lama, harga/nama tidak pernah ditimpa.
+- Verifikasi: 78/79 komponen punya specs (via `/api/catalog`); POST `/api/quotes`
+  menghasilkan RAB dengan specs + total berat (contoh konfigurasi → `weightKg: 633`);
+  bundle client memuat semua string baru; `/konfigurator` & `/api/catalog` 200 via
+  domain `:8444`.
+
 ---
 
 ## 2. Kondisi Sekarang (running state)
@@ -113,7 +136,7 @@ Proyek kini **100% berjalan via Docker**; tidak ada proses Node di host:
 | Akses publik | **`https://nasbpfsby.duckdns.org:8444`** (via nextcloud_nginx); `:3000` publik sudah ditutup |
 | `.env` | `ADMIN_PASSWORD` & `SESSION_SECRET` terisi (kuat); `DATABASE_URL` di-override compose ke `db:5432` |
 | Git | ter-push ke `bestprofitsurabaya/ecopowerid` (branch `main`); working tree bersih |
-| Commit terakhir | `e508516` — hardening keamanan (rate-limit login, validasi upload galeri) |
+| Commit terakhir | (belum) — upgrade UI/UX configurator (harga live, detail teknis RAB, perbandingan paket, sizing PLTS live, specs seed) |
 
 ## 3. Perintah yang Sering Dipakai
 
