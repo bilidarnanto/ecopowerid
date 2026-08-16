@@ -424,6 +424,40 @@ export function getPackageCompare(type: VehicleType): PackageCompare | null {
 
 export const VEHICLE_MAP = new Map(VEHICLE_CONFIGS.map((v) => [v.type, v]));
 
+// ------------------------------------------------------------------
+// Pilihan warna kendaraan (eksterior & interior)
+// ------------------------------------------------------------------
+
+export type ColorOption = {
+  code: string;
+  labelId: string;
+  labelEn: string;
+  /** Warna hex untuk swatch & sketsa */
+  swatch: string;
+};
+
+export const EXTERIOR_COLORS: ColorOption[] = [
+  { code: "EXT-WHITE", labelId: "Putih", labelEn: "White", swatch: "#f1f5f9" },
+  { code: "EXT-GRAY", labelId: "Abu-abu", labelEn: "Gray", swatch: "#94a3b8" },
+  { code: "EXT-BLACK", labelId: "Hitam", labelEn: "Black", swatch: "#1e293b" },
+  { code: "EXT-NAVY", labelId: "Biru Navy", labelEn: "Navy Blue", swatch: "#1e3a8a" },
+  { code: "EXT-GREEN", labelId: "Hijau", labelEn: "Green", swatch: "#166534" },
+  { code: "EXT-RED", labelId: "Merah", labelEn: "Red", swatch: "#b91c1c" },
+];
+
+export const INTERIOR_COLORS: ColorOption[] = [
+  { code: "INT-CREAM", labelId: "Krem", labelEn: "Cream", swatch: "#f5f0e6" },
+  { code: "INT-OAK", labelId: "Oak", labelEn: "Oak", swatch: "#b45309" },
+  { code: "INT-GRAY", labelId: "Abu-abu", labelEn: "Gray", swatch: "#64748b" },
+  { code: "INT-DARK", labelId: "Cokelat Tua", labelEn: "Dark Brown", swatch: "#451a03" },
+];
+
+export const EXTERIOR_COLOR_MAP = new Map(EXTERIOR_COLORS.map((c) => [c.code, c]));
+export const INTERIOR_COLOR_MAP = new Map(INTERIOR_COLORS.map((c) => [c.code, c]));
+
+export const DEFAULT_EXTERIOR_COLOR = EXTERIOR_COLORS[0].code;
+export const DEFAULT_INTERIOR_COLOR = INTERIOR_COLORS[0].code;
+
 // Preset kebutuhan energi untuk tipe PLTS rumahan (Wh/hari)
 export const PLTS_PRESETS = [
   { code: "PLTS-RUMAH-600", labelId: "Hemat (600 Wp)", labelEn: "Basic (600 Wp)", dailyWh: 2000, peakW: 1200 },

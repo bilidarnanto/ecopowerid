@@ -121,6 +121,29 @@ Lima fitur dikerjakan sekaligus (atas permintaan user):
   bundle client memuat semua string baru; `/konfigurator` & `/api/catalog` 200 via
   domain `:8444`.
 
+### 1.9 Upgrade UI/UX Batch 2: Warna, Share, Rincian, Produksi & Energi ✅
+Lima fitur lagi dikerjakan (atas permintaan user):
+1. **Pemilih warna kendaraan** — swatch warna eksterior (`EXTERIOR_COLORS`: putih,
+   abu, hitam, navy, hijau, merah) & interior (`INTERIOR_COLORS`: krem, oak, abu,
+   cokelat tua) di panel pratinjau; `VehicleSketch` kini mewarnai body (sisi/depan/atap
+   dari palet eksterior + strip interior + garis aksen material). Data di
+   `src/lib/configurator-data.ts`; `ConfiguratorState` + API quotes membawa warna.
+2. **Simpan & bagikan konfigurasi** — autosave ke localStorage (`ecopower-config-v1`,
+   guard `ready` agar restore tidak ditimpa); tombol 🔗 Bagikan menyalin link share
+   ber-parameter `?c=<base64url>` yang me-restore konfigurasi (via `src/lib/config-share.ts`);
+   banner biru "Konfigurasi dimuat…" saat restore dari link/penyimpanan.
+3. **Rincian harga per bagian & selisih** — kartu pilihan di step 1 kini menampilkan
+   badge selisih vs opsi dasar grup (+Rp X / −Rp X / "Dasar"); komponen `SectionBreakdown`
+   di step review menampilkan subtotal + % + bar proporsi per grup RAB.
+4. **Waktu produksi & garansi** — sidebar & review menampilkan ⏱️ estimasi hari kerja
+   (maks `specs.workDays` dari komponen terpilih, didominasi paket konversi) dan
+   🛡️ garansi bulan (`specs.warrantyMonths` paket STRUKTUR, fallback maks).
+5. **Grafik pemakaian energi** — `src/components/EnergyChart.tsx` (bar chart CSS murni,
+   tanpa dependency) menampilkan Wh/hari per peralatan di step energi, live saat pilih.
+- Verifikasi: typecheck bersih; quote tes menyimpan `exteriorColor: EXT-NAVY`,
+  `interiorColor: INT-OAK`, RAB membawa `workDays: 28` & `warrantyMonths: [18, 24]`;
+  `/api/catalog`, `/konfigurator` 200; admin 307; bundle client memuat string baru.
+
 ---
 
 ## 2. Kondisi Sekarang (running state)
@@ -136,7 +159,7 @@ Lima fitur dikerjakan sekaligus (atas permintaan user):
 | Akses publik | **`https://nasbpfsby.duckdns.org:8444`** (via nextcloud_nginx); `:3000` publik sudah ditutup |
 | `.env` | `ADMIN_PASSWORD` & `SESSION_SECRET` terisi (kuat); `DATABASE_URL` di-override compose ke `db:5432` |
 | Git | ter-push ke `bestprofitsurabaya/ecopowerid` (branch `main`); working tree bersih |
-| Commit terakhir | (belum) — upgrade UI/UX configurator (harga live, detail teknis RAB, perbandingan paket, sizing PLTS live, specs seed) |
+| Commit terakhir | upgrade UI/UX batch 2: warna kendaraan, simpan & bagikan, rincian per bagian + selisih, waktu produksi & garansi, grafik energi |
 
 ## 3. Perintah yang Sering Dipakai
 
@@ -204,7 +227,10 @@ npx tsc --noEmit
 | `Dockerfile` | 3 stage: deps (npm ci) → builder (prisma generate + next build) → runner (standalone) |
 | `docker-entrypoint.sh` | tunggu db → `prisma migrate deploy` → seed insert-only → `node server.js` |
 | `next.config.ts` | `output: "standalone"` + `outputFileTracingExcludes` (**tanpa** `./prisma/**/*`) |
-| `src/components/VehicleSketch.tsx` | sketsa 3D isometrik configurator |
+| `src/components/VehicleSketch.tsx` | sketsa 3D isometrik configurator (mendukung warna eksterior/interior) |
+| `src/components/EnergyChart.tsx` | grafik batang pemakaian energi harian (CSS murni) |
+| `src/components/PackageCompareModal.tsx` | modal perbandingan paket STD/DLX/PRM |
+| `src/lib/config-share.ts` | serialize/deserialize konfigurasi untuk simpan & bagikan (URL `?c=`) |
 | `src/lib/prisma.ts` | klien Prisma (jangan ubah cara importnya) |
 | `src/lib/rate-limit.ts` | rate limiter in-memory login admin (5x/15 mnt + lockout) |
 | `src/app/api/auth/login/route.ts` | login admin — rate-limit + delay anti brute-force |

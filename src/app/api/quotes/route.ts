@@ -42,6 +42,8 @@ export async function POST(request: Request) {
     includePlts: Boolean(config?.includePlts),
     manualDailyWh: config?.manualDailyWh ?? undefined,
     manualPeakW: config?.manualPeakW ?? undefined,
+    exteriorColor: config?.exteriorColor ?? undefined,
+    interiorColor: config?.interiorColor ?? undefined,
   };
 
   const dbComponents = await prisma.component.findMany({ where: { isActive: true } });

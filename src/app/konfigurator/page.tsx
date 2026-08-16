@@ -3,9 +3,22 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   VEHICLE_CONFIGS,
+  EXTERIOR_COLORS,
+  INTERIOR_COLORS,
+  EXTERIOR_COLOR_MAP,
+  INTERIOR_COLOR_MAP,
+  DEFAULT_EXTERIOR_COLOR,
+  DEFAULT_INTERIOR_COLOR,
   getPackageCompare,
+  type ConfigGroup,
+  type VehicleConfig,
   type VehicleType,
 } from "@/lib/configurator-data";
+import {
+  deserializeConfig,
+  serializeConfig,
+  shareUrl,
+} from "@/lib/config-share";
 import {
   buildRab,
   buildProvider,
@@ -13,11 +26,13 @@ import {
   type ApplianceSelection,
   type CatalogComponent,
   type ConfiguratorState,
+  type Rab,
 } from "@/lib/rab";
+import type { Dict } from "@/lib/i18n/dictionaries";
 import { calculatePlts } from "@/lib/plts";
 import { APPLIANCE_MAP } from "@/lib/loads";
 import { useI18n } from "@/lib/i18n/provider";
-import { formatIDR } from "@/lib/format";
+import { formatIDR, formatNumber } from "@/lib/format";
 import { AppliancePicker } from "@/components/AppliancePicker";
 import { PltsSummary } from "@/components/PltsSummary";
 import { RabTable } from "@/components/RabTable";
@@ -25,6 +40,9 @@ import { RabPdfButton } from "@/components/RabPdfButton";
 import { QuoteModal } from "@/components/QuoteModal";
 import { VehicleSketch } from "@/components/VehicleSketch";
 import { PackageCompareModal } from "@/components/PackageCompareModal";
+import { EnergyChart } from "@/components/EnergyChart";
+
+const STORAGE_KEY = "ecopower-config-v1";
 
 const STEP_KEYS = ["stepVehicle", "stepPackage", "stepOptions", "stepEnergy", "stepReview"] as const;
 
@@ -42,8 +60,15 @@ export default function ConfiguratorPage() {
   const [includePlts, setIncludePlts] = useState(true);
   const [manualDailyWh, setManualDailyWh] = useState<number | null>(null);
   const [manualPeakW, setManualPeakW] = useState<number | null>(null);
+  const [exteriorColor, setExteriorColor] = useState<string>(DEFAULT_EXTERIOR_COLOR);
+  const [interiorColor, setInteriorColor] = useState<string>(DEFAULT_INTERIOR_COLOR);
   const [quoteOpen, setQuoteOpen] = useState(false);
   const [compareOpen, setCompareOpen] = useState(false);
+  const [shareCopied, setShareCopied] = useState(false);
+  const [restoredFromLink, setRestoredFromLink] = useState(false);
+  const [restoredFromStorage, setRestoredFromStorage] = useState(false);
+  // Guard: autosave tidak boleh menimpa localStorage sebelum restore selesai
+  const [ready, setReady] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -75,7 +100,96 @@ export default function ConfiguratorPage() {
     includePlts,
     manualDailyWh: manualDailyWh ?? undefined,
     manualPeakW: manualPeakW ?? undefined,
+    exteriorColor,
+    interiorColor,
   };
+
+  // ------------------------------------------------------------------
+  // Simpan & bagikan konfigurasi
+  // ------------------------------------------------------------------
+
+  // Autosave ke localStorage setiap ada perubahan (setelah restore pertama)
+  useEffect(() => {
+    if (!ready) return;
+    try {
+      localStorage.setItem(STORAGE_KEY, serializeConfig(state, step));
+    } catch {
+      // localStorage tidak tersedia — abaikan
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ready,
+    vehicleType,
+    packageCode,
+    layoutCode,
+    materialCode,
+    addonCodes,
+    appliances,
+    includePlts,
+    manualDailyWh,
+    manualPeakW,
+    exteriorColor,
+    interiorColor,
+    step,
+  ]);
+
+  // Muat ulang: prioritas URL share (?c=...) > localStorage
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const shared = params.get("c");
+    let restored = false;
+    if (shared) {
+      const parsed = deserializeConfig(shared);
+      if (parsed) {
+        applyConfig(parsed.config, parsed.step);
+        restored = true;
+        setRestoredFromLink(true);
+        // Bersihkan query agar tidak mengganggu navigasi berikutnya
+        window.history.replaceState({}, "", window.location.pathname);
+      }
+    }
+    if (!restored) {
+      try {
+        const saved = localStorage.getItem(STORAGE_KEY);
+        if (saved) {
+          const parsed = deserializeConfig(saved);
+          if (parsed) {
+            applyConfig(parsed.config, parsed.step);
+            restored = true;
+            setRestoredFromStorage(true);
+          }
+        }
+      } catch {
+        // abaikan
+      }
+    }
+    setReady(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  function applyConfig(cfg: ConfiguratorState, s: number) {
+    setVehicleType(cfg.vehicleType);
+    setPackageCode(cfg.packageCode ?? null);
+    setLayoutCode(cfg.layoutCode ?? null);
+    setMaterialCode(cfg.materialCode ?? null);
+    setAddonCodes(cfg.addonCodes ?? []);
+    setAppliances(cfg.appliances ?? {});
+    setIncludePlts(cfg.includePlts);
+    setManualDailyWh(cfg.manualDailyWh ?? null);
+    setManualPeakW(cfg.manualPeakW ?? null);
+    setExteriorColor(cfg.exteriorColor ?? DEFAULT_EXTERIOR_COLOR);
+    setInteriorColor(cfg.interiorColor ?? DEFAULT_INTERIOR_COLOR);
+    setStep(s);
+  }
+
+  function handleShare() {
+    try {
+      void navigator.clipboard.writeText(shareUrl(state, step));
+      setShareCopied(true);
+      setTimeout(() => setShareCopied(false), 2500);
+    } catch {
+      // clipboard tidak tersedia
+    }
+  }
 
   const rab = useMemo(() => {
     if (!provider) return null;
@@ -95,6 +209,36 @@ export default function ConfiguratorPage() {
   const vehicle = vehicleType ? VEHICLE_CONFIGS.find((v) => v.type === vehicleType) : null;
   const isPltsOnly = vehicleType === "plts";
   const compare = vehicleType ? getPackageCompare(vehicleType) : null;
+
+  // Estimasi waktu produksi: paket konversi mendominasi (hari kerja terbesar)
+  const productionDays = useMemo(() => {
+    if (!rab) return 0;
+    return Math.max(
+      0,
+      ...rab.lines.map((l) =>
+        typeof l.specs?.workDays === "number" ? (l.specs.workDays as number) : 0
+      )
+    );
+  }, [rab]);
+
+  // Garansi: ambil garansi paket (STRUKTUR) bila ada, fallback maksimum antar komponen
+  const warrantyMonths = useMemo(() => {
+    if (!rab) return 0;
+    const pkg = rab.lines.find(
+      (l) =>
+        l.group === "STRUKTUR" &&
+        typeof l.specs?.warrantyMonths === "number"
+    );
+    if (pkg) return pkg.specs!.warrantyMonths as number;
+    return Math.max(
+      0,
+      ...rab.lines.map((l) =>
+        typeof l.specs?.warrantyMonths === "number"
+          ? (l.specs.warrantyMonths as number)
+          : 0
+      )
+    );
+  }, [rab]);
 
   function selectVehicle(v: VehicleType) {
     setVehicleType(v);
@@ -133,6 +277,13 @@ export default function ConfiguratorPage() {
     setIncludePlts(true);
     setManualDailyWh(null);
     setManualPeakW(null);
+    setExteriorColor(DEFAULT_EXTERIOR_COLOR);
+    setInteriorColor(DEFAULT_INTERIOR_COLOR);
+    try {
+      localStorage.removeItem(STORAGE_KEY);
+    } catch {
+      // abaikan
+    }
   }
 
   const stepLabels = STEP_KEYS.map((k) => t.configurator[k]);
@@ -151,6 +302,26 @@ export default function ConfiguratorPage() {
         {t.configurator.title}
       </h1>
       <p className="mt-2 max-w-2xl text-slate-600">{t.configurator.subtitle}</p>
+
+      {(restoredFromLink || restoredFromStorage) && (
+        <div className="mt-4 flex items-center justify-between gap-3 rounded-xl border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-800">
+          <span>
+            💾{" "}
+            {restoredFromLink
+              ? t.configurator.restoredFromLink
+              : t.configurator.restoredFromStorage}
+          </span>
+          <button
+            onClick={() => {
+              setRestoredFromLink(false);
+              setRestoredFromStorage(false);
+            }}
+            className="shrink-0 rounded-lg px-2 py-1 text-xs font-semibold text-sky-600 hover:bg-sky-100"
+          >
+            {t.common.close}
+          </button>
+        </div>
+      )}
 
       {/* Progress */}
       <ol className="mt-8 flex flex-wrap items-center gap-2">
@@ -200,8 +371,61 @@ export default function ConfiguratorPage() {
                 materialCode={materialCode}
                 addonCodes={addonCodes}
                 includePlts={includePlts}
+                exteriorColor={exteriorColor}
+                interiorColor={interiorColor}
               />
             </div>
+
+            {vehicle && vehicleType !== "plts" && (
+              <div className="mt-4 space-y-3 border-t border-slate-100 pt-3">
+                {/* Warna eksterior */}
+                <div>
+                  <div className="text-xs font-semibold text-slate-600">
+                    {t.configurator.exteriorColor}
+                  </div>
+                  <div className="mt-1.5 flex flex-wrap gap-1.5">
+                    {EXTERIOR_COLORS.map((c) => (
+                      <button
+                        key={c.code}
+                        type="button"
+                        title={lang === "id" ? c.labelId : c.labelEn}
+                        aria-label={`${lang === "id" ? c.labelId : c.labelEn}${exteriorColor === c.code ? ` (${t.configurator.selected})` : ""}`}
+                        onClick={() => setExteriorColor(c.code)}
+                        className={`h-7 w-7 rounded-full border-2 transition-all ${
+                          exteriorColor === c.code
+                            ? "scale-110 border-emerald-600 ring-2 ring-emerald-200"
+                            : "border-slate-300 hover:scale-105"
+                        }`}
+                        style={{ backgroundColor: c.swatch }}
+                      />
+                    ))}
+                  </div>
+                </div>
+                {/* Warna interior */}
+                <div>
+                  <div className="text-xs font-semibold text-slate-600">
+                    {t.configurator.interiorColor}
+                  </div>
+                  <div className="mt-1.5 flex flex-wrap gap-1.5">
+                    {INTERIOR_COLORS.map((c) => (
+                      <button
+                        key={c.code}
+                        type="button"
+                        title={lang === "id" ? c.labelId : c.labelEn}
+                        aria-label={`${lang === "id" ? c.labelId : c.labelEn}${interiorColor === c.code ? ` (${t.configurator.selected})` : ""}`}
+                        onClick={() => setInteriorColor(c.code)}
+                        className={`h-7 w-7 rounded-full border-2 transition-all ${
+                          interiorColor === c.code
+                            ? "scale-110 border-emerald-600 ring-2 ring-emerald-200"
+                            : "border-slate-300 hover:scale-105"
+                        }`}
+                        style={{ backgroundColor: c.swatch }}
+                      />
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
             {vehicle && (
               <div className="mt-4 border-t border-slate-100 pt-3 text-xs text-slate-500">
                 <div className="font-semibold text-slate-700">
@@ -236,11 +460,43 @@ export default function ConfiguratorPage() {
                   {rab.totals.weightKg > 0 && (
                     <span>
                       {t.configurator.estimatedWeight}: ≈{" "}
-                      {rab.totals.weightKg.toLocaleString("id-ID")} {t.configurator.weightSuffix}
+                      {formatNumber(rab.totals.weightKg)} {t.configurator.weightSuffix}
+                    </span>
+                  )}
+                  {productionDays > 0 && (
+                    <span>
+                      ⏱️ {t.configurator.productionTime}: ≈ {productionDays}{" "}
+                      {t.configurator.workDaysUnit}
+                    </span>
+                  )}
+                  {warrantyMonths > 0 && (
+                    <span>
+                      🛡️ {t.configurator.warranty}: {warrantyMonths}{" "}
+                      {t.configurator.monthsUnit}
                     </span>
                   )}
                 </div>
               </div>
+            )}
+
+            {/* Tombol bagikan konfigurasi */}
+            {step > 0 && vehicle && (
+              <button
+                type="button"
+                onClick={handleShare}
+                className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl border border-slate-300 px-4 py-2 text-xs font-semibold text-slate-600 transition-colors hover:bg-slate-50"
+              >
+                {shareCopied ? (
+                  <>✅ {t.configurator.shareCopied}</>
+                ) : (
+                  <>
+                    🔗 {t.configurator.share}
+                    <span className="hidden text-[10px] font-normal text-slate-400 sm:inline">
+                      {t.configurator.shareHint}
+                    </span>
+                  </>
+                )}
+              </button>
             )}
           </div>
         </aside>
@@ -297,6 +553,11 @@ export default function ConfiguratorPage() {
                     {g.options.map((opt) => {
                       const selected = groupValue(g.key) === opt.code;
                       const comp = provider?.byCode(opt.code);
+                      // Selisih vs opsi dasar grup (opsi pertama = paket dasar)
+                      const baseCode = g.options[0]?.code;
+                      const baseComp = baseCode ? provider?.byCode(baseCode) : undefined;
+                      const delta =
+                        comp && baseComp ? comp.price - baseComp.price : null;
                       return (
                         <button
                           key={opt.code}
@@ -323,10 +584,25 @@ export default function ConfiguratorPage() {
                             </p>
                           )}
                           {comp && (
-                            <div className="mt-2 border-t border-slate-100 pt-2">
+                            <div className="mt-2 flex items-center justify-between gap-2 border-t border-slate-100 pt-2">
                               <div className="text-sm font-bold text-slate-800">
                                 {formatIDR(comp.price)}
                               </div>
+                              {delta === 0 && (
+                                <span className="rounded-md bg-slate-100 px-1.5 py-0.5 text-[10px] font-semibold text-slate-500">
+                                  {t.configurator.basePackageShort}
+                                </span>
+                              )}
+                              {delta !== null && delta > 0 && (
+                                <span className="rounded-md bg-emerald-50 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-700">
+                                  +{formatIDR(delta)}
+                                </span>
+                              )}
+                              {delta !== null && delta < 0 && (
+                                <span className="rounded-md bg-sky-50 px-1.5 py-0.5 text-[10px] font-semibold text-sky-700">
+                                  −{formatIDR(-delta)}
+                                </span>
+                              )}
                             </div>
                           )}
                         </button>
@@ -435,6 +711,11 @@ export default function ConfiguratorPage() {
               <AppliancePicker value={appliances} onChange={setAppliances} />
             </div>
 
+            {/* Grafik pemakaian energi — bar chart langsung saat pilih peralatan */}
+            <div className="mt-5">
+              <EnergyChart appliances={appliances} />
+            </div>
+
             {!isPltsOnly && (
               <label className="mt-5 flex cursor-pointer items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3">
                 <input
@@ -461,6 +742,9 @@ export default function ConfiguratorPage() {
         {/* STEP 4 — RINGKASAN & RAB */}
         {step === 4 && rab && (
           <div className="space-y-6">
+            {/* Rincian per bagian — biar customer paham kemana uangnya */}
+            <SectionBreakdown rab={rab} t={t} lang={lang} />
+
             <div className="rounded-xl border border-slate-200 bg-slate-50 p-5">
               <h3 className="font-bold text-slate-900">{t.configurator.summaryTitle}</h3>
               <div className="mt-3 grid gap-x-8 gap-y-2 text-sm sm:grid-cols-2 lg:grid-cols-3">
@@ -524,8 +808,45 @@ export default function ConfiguratorPage() {
                     </b>
                   </div>
                 )}
+                {vehicleType !== "plts" && (
+                  <>
+                    <div>
+                      <span className="text-slate-500">{t.configurator.exteriorColor}: </span>
+                      <b className="text-slate-800">
+                        {lang === "id"
+                          ? EXTERIOR_COLOR_MAP.get(exteriorColor)?.labelId
+                          : EXTERIOR_COLOR_MAP.get(exteriorColor)?.labelEn}
+                      </b>
+                    </div>
+                    <div>
+                      <span className="text-slate-500">{t.configurator.interiorColor}: </span>
+                      <b className="text-slate-800">
+                        {lang === "id"
+                          ? INTERIOR_COLOR_MAP.get(interiorColor)?.labelId
+                          : INTERIOR_COLOR_MAP.get(interiorColor)?.labelEn}
+                      </b>
+                    </div>
+                  </>
+                )}
               </div>
             </div>
+
+            {(productionDays > 0 || warrantyMonths > 0) && (
+              <div className="flex flex-wrap gap-2">
+                {productionDays > 0 && (
+                  <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-50 px-3 py-1.5 text-xs font-semibold text-amber-800 ring-1 ring-amber-200">
+                    ⏱️ {t.configurator.productionTime}: ≈ {productionDays}{" "}
+                    {t.configurator.workDaysUnit}
+                  </span>
+                )}
+                {warrantyMonths > 0 && (
+                  <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-800 ring-1 ring-emerald-200">
+                    🛡️ {t.configurator.warranty}: {warrantyMonths}{" "}
+                    {t.configurator.monthsUnit}
+                  </span>
+                )}
+              </div>
+            )}
 
             {pltsResult && <PltsSummary plts={pltsResult} />}
 
@@ -639,6 +960,67 @@ function SummaryItem({
     <div>
       <span className="text-slate-500">{label}: </span>
       <b className="text-slate-800">{lang === "id" ? comp.nameId : comp.nameEn}</b>
+    </div>
+  );
+}
+
+/** Rincian RAB per bagian (grup) — subtotal & proporsi, biar customer paham kemana uangnya */
+function SectionBreakdown({
+  rab,
+  t,
+  lang,
+}: {
+  rab: Rab;
+  t: Dict;
+  lang: "id" | "en";
+}) {
+  const groups = useMemo(() => {
+    const totals = new Map<string, number>();
+    for (const l of rab.lines) {
+      totals.set(l.group, (totals.get(l.group) ?? 0) + l.subtotal);
+    }
+    return [...totals.entries()].sort((a, b) => b[1] - a[1]);
+  }, [rab.lines]);
+
+  const total = groups.reduce((s, [, v]) => s + v, 0);
+  if (groups.length === 0) return null;
+
+  const labelKey: Record<string, string> = {
+    STRUKTUR: t.rab.groupStruktur,
+    INTERIOR: t.rab.groupInterior,
+    PERALATAN: t.rab.groupPeralatan,
+    PLTS: t.rab.groupPlts,
+    LISTRIK: t.rab.groupListrik,
+    PLUMBING: t.rab.groupPlumbing,
+    JASA: t.rab.groupJasa,
+  };
+
+  return (
+    <div className="rounded-xl border border-slate-200 bg-white p-5">
+      <h3 className="font-bold text-slate-900">🧩 {t.configurator.sectionBreakdown}</h3>
+      <div className="mt-3 space-y-2.5">
+        {groups.map(([group, subtotal]) => (
+          <div key={group}>
+            <div className="flex items-center justify-between gap-2 text-xs">
+              <span className="font-medium text-slate-700">
+                {labelKey[group] ?? group}
+              </span>
+              <span className="font-bold text-slate-800">
+                {formatIDR(subtotal)}
+                <span className="ml-1 font-normal text-slate-400">
+                  ({total > 0 ? Math.round((subtotal / total) * 100) : 0}%)
+                </span>
+              </span>
+            </div>
+            <div className="mt-1 h-2 overflow-hidden rounded-full bg-slate-100">
+              <div
+                className="h-full rounded-full bg-emerald-500/80 transition-all duration-300"
+                style={{ width: `${total > 0 ? (subtotal / total) * 100 : 0}%` }}
+              />
+            </div>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }

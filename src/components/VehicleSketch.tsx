@@ -1,8 +1,35 @@
 "use client";
 
 import { useMemo } from "react";
-import type { VehicleType } from "@/lib/configurator-data";
+import {
+  DEFAULT_EXTERIOR_COLOR,
+  DEFAULT_INTERIOR_COLOR,
+  EXTERIOR_COLOR_MAP,
+  INTERIOR_COLOR_MAP,
+  type VehicleType,
+} from "@/lib/configurator-data";
 import { useI18n } from "@/lib/i18n/provider";
+
+// ------------------------------------------------------------------
+// Utilitas warna: turunkan palet terang/gelap dari satu warna dasar
+// ------------------------------------------------------------------
+
+function hexToRgb(hex: string): [number, number, number] {
+  const h = hex.replace("#", "");
+  const full =
+    h.length === 3 ? h.split("").map((c) => c + c).join("") : h;
+  const n = parseInt(full, 16);
+  return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+}
+
+/** Campur hex dengan hitam (amt negatif) atau putih (amt positif) */
+function tint(hex: string, amt: number): string {
+  const [r, g, b] = hexToRgb(hex);
+  const t = amt >= 0 ? 255 : 0;
+  const f = Math.abs(amt);
+  const mix = (c: number) => Math.round(c + (t - c) * f);
+  return `rgb(${mix(r)},${mix(g)},${mix(b)})`;
+}
 
 // ------------------------------------------------------------------
 // Proyeksi isometrik sederhana (sketsa teknik 3D)
@@ -43,9 +70,6 @@ const DIMS: Record<Exclude<VehicleType, "plts">, Dims> = {
 };
 
 const COLORS = {
-  side: "#dbe3ea",
-  front: "#eef2f7",
-  roof: "#f8fafc",
   outline: "#334155",
   glass: "rgba(147, 197, 253, 0.45)",
   glassEdge: "#7a93ad",
@@ -64,6 +88,26 @@ const COLORS = {
   trim: "#475569",
 };
 
+/** Palet body dari warna eksterior terpilih */
+function bodyPalette(exteriorCode: string | null) {
+  const base =
+    EXTERIOR_COLOR_MAP.get(exteriorCode ?? "")?.swatch ??
+    EXTERIOR_COLOR_MAP.get(DEFAULT_EXTERIOR_COLOR)!.swatch;
+  return {
+    side: tint(base, -0.12),
+    front: tint(base, -0.04),
+    roof: tint(base, 0.08),
+  };
+}
+
+/** Warna aksen interior (strip & detail) */
+function interiorAccent(interiorCode: string | null) {
+  return (
+    INTERIOR_COLOR_MAP.get(interiorCode ?? "")?.swatch ??
+    INTERIOR_COLOR_MAP.get(DEFAULT_INTERIOR_COLOR)!.swatch
+  );
+}
+
 const ACCENT: Record<string, string> = {
   "MAT-HPL": "#0d9488",
   "MAT-PLY": "#b45309",
@@ -77,6 +121,8 @@ type SketchProps = {
   materialCode: string | null;
   addonCodes: string[];
   includePlts: boolean;
+  exteriorColor?: string | null;
+  interiorColor?: string | null;
 };
 
 export function VehicleSketch({
@@ -86,6 +132,8 @@ export function VehicleSketch({
   materialCode,
   addonCodes,
   includePlts,
+  exteriorColor,
+  interiorColor,
 }: SketchProps) {
   const { t } = useI18n();
 
@@ -99,9 +147,11 @@ export function VehicleSketch({
       materialCode,
       addons: addonKey,
       includePlts,
+      exteriorColor,
+      interiorColor,
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [vehicleType, packageCode, layoutCode, materialCode, addonKey, includePlts]);
+  }, [vehicleType, packageCode, layoutCode, materialCode, addonKey, includePlts, exteriorColor, interiorColor]);
 
   if (!scene) {
     return (
@@ -133,6 +183,8 @@ type SceneInput = {
   materialCode: string | null;
   addons: string;
   includePlts: boolean;
+  exteriorColor?: string | null;
+  interiorColor?: string | null;
 };
 
 function buildScene(type: Exclude<VehicleType, "plts">, input: SceneInput) {
@@ -140,6 +192,8 @@ function buildScene(type: Exclude<VehicleType, "plts">, input: SceneInput) {
   const addons = new Set(input.addons.split("|").filter(Boolean));
   const pkg = input.packageCode ?? "";
   const accent = ACCENT[input.materialCode ?? ""] ?? ACCENT["MAT-HPL"];
+  const body = bodyPalette(input.exteriorColor ?? null);
+  const interior = interiorAccent(input.interiorColor ?? null);
 
   // Opsi visual dari paket & add-on
   const roofRack =
@@ -209,7 +263,7 @@ function buildScene(type: Exclude<VehicleType, "plts">, input: SceneInput) {
     <polygon
       key="side"
       points={pts([TFR, TBR, BR, FR], ox, oy)}
-      fill={COLORS.side}
+      fill={body.side}
       stroke={COLORS.outline}
       strokeWidth={1.5}
       strokeLinejoin="round"
@@ -221,7 +275,7 @@ function buildScene(type: Exclude<VehicleType, "plts">, input: SceneInput) {
     <polygon
       key="front"
       points={pts([TFL, TFR, FR, FL], ox, oy)}
-      fill={COLORS.front}
+      fill={body.front}
       stroke={COLORS.outline}
       strokeWidth={1.5}
       strokeLinejoin="round"
@@ -233,7 +287,7 @@ function buildScene(type: Exclude<VehicleType, "plts">, input: SceneInput) {
     <polygon
       key="roof"
       points={pts([TFL, TFR, TBR, TBL], ox, oy)}
-      fill={COLORS.roof}
+      fill={body.roof}
       stroke={COLORS.outline}
       strokeWidth={1.5}
       strokeLinejoin="round"
@@ -244,7 +298,7 @@ function buildScene(type: Exclude<VehicleType, "plts">, input: SceneInput) {
   // Detail SISI (z = W)
   // ------------------------------------------------------------------
 
-  // Strip material (warna aksen sesuai pilihan)
+  // Strip interior (warna sesuai pilihan interior) + garis aksen material tipis
   add(
     <polygon
       key="stripe"
@@ -258,8 +312,25 @@ function buildScene(type: Exclude<VehicleType, "plts">, input: SceneInput) {
         ox,
         oy
       )}
+      fill={interior}
+      opacity={0.9}
+    />
+  );
+  add(
+    <polygon
+      key="accent-line"
+      points={pts(
+        [
+          [0.08 * L, 0.53 * H, W],
+          [0.92 * L, 0.53 * H, W],
+          [0.92 * L, 0.55 * H, W],
+          [0.08 * L, 0.55 * H, W],
+        ],
+        ox,
+        oy
+      )}
       fill={accent}
-      opacity={0.85}
+      opacity={0.9}
     />
   );
 

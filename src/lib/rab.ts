@@ -30,6 +30,10 @@ export type ConfiguratorState = {
   /** Input manual (opsional) — menggantikan perhitungan dari peralatan jika diisi */
   manualDailyWh?: number;
   manualPeakW?: number;
+  /** Warna eksterior (kode ColorOption) */
+  exteriorColor?: string;
+  /** Warna interior (kode ColorOption) */
+  interiorColor?: string;
 };
 
 export type RabLine = {
