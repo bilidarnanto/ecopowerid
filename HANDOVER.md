@@ -29,11 +29,34 @@
 ### 1.3 Akses Publik via Router MikroTik RB1100 ✅
 - Router: **RB1100AHx2** di `192.168.100.1` (SSH & Winbox terbuka; kredensial ada di catatan internal).
 - WAN: `pppoe-biznet` dengan IP publik **`182.253.62.194`**; host server `192.168.100.234` (ether10).
-- Ditambahkan rule NAT baru: **`FW-EcoPower-Port-3000`** — dst-nat dari WAN port 3000
-  → `192.168.100.234:3000` (rule terpisah, tidak mengubah rule `FW-All-Ports` yang sudah ada).
-- Firewall input WAN = drop; forward rule 6 accept ke host ini — sudah aman.
-- Verifikasi eksternal: port `182.253.62.194:3000` **terbuka** (port-check `status: true`).
-- ⚠️ Belum ada domain/HTTPS — akses publik masih `http://<IP>:3000` (lihat §5).
+- Firewall input WAN = drop; forward rule accept ke host ini — sudah aman.
+
+### 1.6 Akses via Domain + Reverse Proxy Bersama ✅ (sesi ini)
+Semua proyek memakai domain **`nasbpfsby.duckdns.org`** dengan port berbeda, di-proxy oleh
+container nginx bersama `nextcloud_nginx` (network `nextcloud_net`):
+
+| Proyek | URL | Nginx → upstream |
+|---|---|---|
+| Nextcloud | `https://nasbpfsby.duckdns.org` | `nextcloud:80` |
+| BBM | `https://nasbpfsby.duckdns.org:5000` | `bbm_web:5000` |
+| Karaoke | `https://nasbpfsby.duckdns.org:8443` | `karaoke_frontend:80` |
+| **EcoPower** | **`https://nasbpfsby.duckdns.org:8444`** | **`ecopowerid-app-1:3000`** |
+
+Yang dikerjakan:
+- `docker-compose.yml` EcoPower: service `app` join ke network eksternal **`nextcloud_net`**
+  (selain `default`); `nextcloud_net` dideklarasikan `external: true`.
+- **`/home/it-ef/hybrid_nextcloud/nginx/conf.d/ecopower.conf`** (baru): `listen 8444 ssl`
+  → proxy ke `ecopowerid-app-1:3000`; ada `if ($host !~ nasbpfsby\.duckdns\.org) { return 444; }`
+  untuk memblokir akses via IP langsung (anti-scan bot). SSL pakai cert Let's Encrypt bersama.
+- `/home/it-ef/hybrid_nextcloud/docker-compose.yaml`: nginx publish `"8444:8444"`
+  (backup: `docker-compose.yaml.bak-ecopower`). Container `nextcloud_nginx` di-recreate.
+- Router: port **8444** sudah ada di rule `FW-All-Ports` (dst-nat WAN → `192.168.100.234`),
+  tidak perlu rule baru. **Rule sementara `FW-EcoPower-Port-3000` sudah DIHAPUS** —
+  publik tidak bisa lagi akses `:3000` langsung.
+- Verifikasi: port-check eksternal `182.253.62.194:8444` **open**, `:3000` **closed**.
+  `https://nasbpfsby.duckdns.org:8444/{/konfigurator,/api/catalog,/admin→login}` semua OK.
+  LAN resolve domain → `192.168.100.234` via DNS static router (`NAS-Local-DNS`), jadi klien
+  LAN juga dapat akses (hairpin ke IP publik memang tidak aktif, sama seperti proyek lain).
 
 ### 1.4 Pembersihan & Dockerisasi Penuh ✅
 Proyek kini **100% berjalan via Docker**; tidak ada proses Node di host:
@@ -59,21 +82,24 @@ Proyek kini **100% berjalan via Docker**; tidak ada proses Node di host:
 
 | Item | Status |
 |---|---|
-| Container aktif | `ecopowerid-app-1` (port 3000) + `ecopowerid-db-1` (postgres:16-alpine, healthy) |
+| Container aktif | `ecopowerid-app-1` (port 3000, join `nextcloud_net`) + `ecopowerid-db-1` (postgres:16-alpine, healthy) |
 | Image app | `ecopowerid-app:latest` (standalone, ±1.13 GB) — build dengan fix trace Prisma |
 | Volume | `pgdata` (DB) + `uploads` (foto galeri → `data/uploads`) |
 | `GET /api/catalog` | 200 (79 komponen) |
 | `/konfigurator` | 200, memuat "Pratinjau 3D" |
 | `/admin` | 307 → `/admin/login` (terproteksi sesi) |
-| Akses publik | `http://182.253.62.194:3000` terbuka |
+| Akses publik | **`https://nasbpfsby.duckdns.org:8444`** (via nextcloud_nginx); `:3000` publik sudah ditutup |
 | `.env` | `ADMIN_PASSWORD` & `SESSION_SECRET` terisi (kuat); `DATABASE_URL` di-override compose ke `db:5432` |
-| Git | `ac5e7b9` ter-push; working tree bersih |
+| Git | ter-push ke `bestprofitsurabaya/ecopowerid` (branch `main`); working tree bersih |
 
 ## 3. Perintah yang Sering Dipakai
 
 ```bash
 # Rebuild & deploy (npm ci di-cache, ±3 menit)
 docker compose up -d --build
+# Catatan: setelah recreate app container, cek lagi join network-nya:
+docker inspect ecopowerid-app-1 --format '{{range $k,$v := .NetworkSettings.Networks}}{{$k}} {{end}}'
+#   → harus muncul: ecopowerid_default nextcloud_net
 
 # Cek log / status
 docker logs ecopowerid-app-1 --tail 20
@@ -102,12 +128,17 @@ npx tsc --noEmit
 3. **`outputFileTracingExcludes`** — jangan pernah exclude `./prisma/**/*` (lihat §1.5).
 4. Port 3000 dilayani oleh **container compose**; jangan start `next dev`/`next start` manual di host.
 5. Kredensial router/GitHub tersimpan di file proyek lain server ini — jangan commit ke repo.
+6. Akses publik lewat **`nextcloud_nginx`** (proyek hybrid_nextcloud). Jika container
+   `nextcloud_nginx` di-recreate/di-rebuild, pastikan conf.d masih memuat `ecopower.conf`
+   dan compose masih publish `8444:8444`. Config nginx di-mount `:ro` dari host, jadi
+   edit file conf.d langsung + `docker compose up -d --no-deps nginx` di
+   `/home/it-ef/hybrid_nextcloud` (jangan recreate proyek lain tanpa perlu).
 
 ## 5. Langkah Berikutnya yang Disarankan (belum dikerjakan)
 
-- [ ] **Domain + HTTPS** — pasang reverse proxy (nginx/caddy) di depan port 3000 + Let's Encrypt,
-      agar akses publik tidak lewat `http://IP:port` telanjang. Perlu DNS A record → `182.253.62.194`
-      (atau DDNS), lalu tambah dst-nat 80/443 di router RB1100.
+- [x] **Domain + HTTPS** — ✅ akses publik sekarang `https://nasbpfsby.duckdns.org:8444`
+      (SSL Let's Encrypt via nextcloud_nginx). Tersisa opsional: domain khusus EcoPower
+      (mis. `ecopower.duckdns.org`) bila mau tanpa port.
 - [ ] **Hardening keamanan** — rate-limit endpoint login admin, validasi tipe file upload galeri,
       security headers (CSP, HSTS), proteksi `docker-entrypoint.sh` seed agar tidak jalan tiap start.
 - [ ] **Backup DB terjadwal** — `pg_dump` volume `pgdata` (mis. cron harian), karena data admin

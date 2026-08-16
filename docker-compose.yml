@@ -43,6 +43,16 @@ services:
     depends_on:
       db:
         condition: service_healthy
+    # Bergabung ke network bersama proyek lain agar bisa di-proxy oleh
+    # reverse proxy bersama (nextcloud_nginx, domain nasbpfsby.duckdns.org:8444)
+    networks:
+      - default
+      - nextcloud_net
+
+networks:
+  nextcloud_net:
+    external: true
+    name: nextcloud_net
 
 volumes:
   pgdata:
