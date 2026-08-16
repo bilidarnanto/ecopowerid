@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 500">
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#7c3aed"/>
+      <stop offset="100%" stop-color="#ede9fe"/>
+    </linearGradient>
+  </defs>
+  <rect width="800" height="500" fill="url(#sky)"/>
+  <rect y="380" width="800" height="120" fill="#14532d"/>
+  <rect y="400" width="800" height="14" fill="#fbbf24"/>
+  <!-- motorhome body -->
+  <path d="M40 380 L40 190 Q40 150 90 150 L560 150 Q610 150 640 200 L680 260 Q700 270 700 300 L700 380 Z" fill="#fef3c7" stroke="#78350f" stroke-width="6"/>
+  <path d="M90 150 L560 150 Q610 150 610 190 L610 240 Q610 250 640 250 Z" fill="#b45309"/>
+  <rect x="110" y="220" width="150" height="90" rx="8" fill="#bfdbfe" stroke="#78350f" stroke-width="4"/>
+  <rect x="300" y="210" width="130" height="80" rx="8" fill="#bfdbfe" stroke="#78350f" stroke-width="4"/>
+  <rect x="480" y="220" width="120" height="90" rx="8" fill="#bfdbfe" stroke="#78350f" stroke-width="4"/>
+  <rect x="130" y="315" width="520" height="22" rx="4" fill="#78350f"/>
+  <circle cx="240" cy="380" r="38" fill="#292524"/>
+  <circle cx="240" cy="380" r="18" fill="#a8a29e"/>
+  <circle cx="540" cy="380" r="38" fill="#292524"/>
+  <circle cx="540" cy="380" r="18" fill="#a8a29e"/>
+  <!-- solar panels -->
+  <rect x="140" y="140" width="150" height="16" rx="3" fill="#0f172a"/>
+  <rect x="310" y="140" width="150" height="16" rx="3" fill="#0f172a"/>
+  <line x1="215" y1="140" x2="215" y2="156" stroke="#facc15" stroke-width="2"/>
+  <line x1="385" y1="140" x2="385" y2="156" stroke="#facc15" stroke-width="2"/>
+  <text x="400" y="470" font-family="Arial" font-size="26" fill="#ffffff" text-anchor="middle" font-weight="bold">EcoPower ID</text>
+</svg>

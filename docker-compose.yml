@@ -1,0 +1,49 @@
+# ============================================================
+# EcoPower ID — Docker Compose (self-hosted)
+#
+# Cara pakai:
+#   1. cp .env.example .env  lalu isi ADMIN_PASSWORD & SESSION_SECRET
+#   2. docker compose up -d --build
+#   3. Buka http://localhost:3000  (atau melalui reverse proxy)
+#
+# Reverse proxy (seperti nginx-proxy / caddy di server):
+#   - Arahkan domain kamu ke container ini di port 3000
+#   - Contoh nginx:
+#     location / { proxy_pass http://127.0.0.1:3000; proxy_set_header Host $host;
+#                  proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for; }
+# ============================================================
+
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-ecopower}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-ecopower}
+      POSTGRES_DB: ${POSTGRES_DB:-ecopower}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-ecopower} -d ${POSTGRES_DB:-ecopower}"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+
+  app:
+    build: .
+    restart: unless-stopped
+    ports:
+      - "${APP_PORT:-3000}:3000"
+    env_file: .env
+    environment:
+      # URL database mengarah ke service `db` di dalam jaringan Docker
+      DATABASE_URL: postgresql://${POSTGRES_USER:-ecopower}:${POSTGRES_PASSWORD:-ecopower}@db:5432/${POSTGRES_DB:-ecopower}?schema=public
+    volumes:
+      - uploads:/app/data/uploads
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  pgdata:
+  uploads:

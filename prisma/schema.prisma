@@ -1,0 +1,84 @@
+// Prisma schema — EcoPower ID Workshop Platform
+// Data model untuk katalog komponen (harga), saran harga AI, penawaran (RAB), dan galeri.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Katalog komponen / item dengan harga satuan (IDR)
+model Component {
+  id             String   @id @default(cuid())
+  code           String   @unique // kode item, mis. "PLTS-PANEL-450"
+  nameId         String
+  nameEn         String
+  category       String // STRUKTUR | INTERIOR | PERALATAN | PLTS_PANEL | PLTS_BATTERY | PLTS_INVERTER | PLTS_SCC | PLTS_BOS | LISTRIK | PLUMBING | JASA
+  unit           String // "unit" | "set" | "meter" | "Wp" | "Ah" | "Watt" ...
+  price          Float // harga satuan IDR
+  specs          Json? // spesifikasi teknis opsional (watt, kapasitas, dll)
+  isActive       Boolean  @default(true)
+  priceUpdatedAt DateTime @default(now())
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  suggestions PriceSuggestion[]
+
+  @@index([category])
+}
+
+// Saran harga (mis. dari AI / riset pasar) — menunggu persetujuan admin
+model PriceSuggestion {
+  id             String    @id @default(cuid())
+  componentId    String
+  component      Component @relation(fields: [componentId], references: [id], onDelete: Cascade)
+  source         String // "ai" | "manual"
+  suggestedPrice Float
+  rangeLow       Float?
+  rangeHigh      Float?
+  reasoning      String?
+  status         String    @default("PENDING") // PENDING | APPROVED | REJECTED
+  createdAt      DateTime  @default(now())
+  reviewedAt     DateTime?
+
+  @@index([status])
+  @@index([componentId])
+}
+
+// Penawaran dari customer (berisi konfigurasi + RAB)
+model Quote {
+  id          String   @id @default(cuid())
+  reference   String   @unique // mis. "EP-2025-0001"
+  name        String
+  email       String
+  phone       String?
+  vehicleType String // campervan | motorhome | foodtruck | plts
+  config      Json // state configurator
+  rab         Json // baris-baris RAB
+  totals      Json // subtotal, margin, ppn, total
+  status      String   @default("BARU") // BARU | DITINJAU | DISETUJUI | DITOLAK
+  notes       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([status])
+}
+
+// Galeri portofolio
+model GalleryItem {
+  id            String   @id @default(cuid())
+  titleId       String
+  titleEn       String
+  category      String // campervan | motorhome | foodtruck | plts
+  imagePath     String // path relatif /uploads/...
+  descriptionId String?
+  descriptionEn String?
+  featured      Boolean  @default(false)
+  sortOrder     Int      @default(0)
+  createdAt     DateTime @default(now())
+
+  @@index([category])
+}

@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 500">
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#0ea5e9"/>
+      <stop offset="100%" stop-color="#e0f2fe"/>
+    </linearGradient>
+  </defs>
+  <rect width="800" height="500" fill="url(#sky)"/>
+  <rect y="380" width="800" height="120" fill="#065f46"/>
+  <rect y="400" width="800" height="14" fill="#fbbf24"/>
+  <circle cx="90" cy="380" r="26" fill="#f59e0b"/>
+  <circle cx="120" cy="380" r="32" fill="#fbbf24" opacity="0.5"/>
+  <!-- van body -->
+  <path d="M80 380 L80 200 Q80 160 130 160 L420 160 Q470 160 490 210 L560 240 Q600 250 600 300 L600 380 Z" fill="#f8fafc" stroke="#334155" stroke-width="6"/>
+  <path d="M420 160 L460 160 Q480 160 480 180 L480 240 Z" fill="#94a3b8"/>
+  <rect x="120" y="240" width="110" height="70" rx="6" fill="#bae6fd" stroke="#334155" stroke-width="4"/>
+  <rect x="280" y="230" width="90" height="60" rx="6" fill="#bae6fd" stroke="#334155" stroke-width="4"/>
+  <rect x="130" y="315" width="430" height="20" rx="4" fill="#334155"/>
+  <circle cx="200" cy="380" r="34" fill="#1e293b"/>
+  <circle cx="200" cy="380" r="16" fill="#94a3b8"/>
+  <circle cx="470" cy="380" r="34" fill="#1e293b"/>
+  <circle cx="470" cy="380" r="16" fill="#94a3b8"/>
+  <!-- solar panel on roof -->
+  <rect x="180" y="150" width="120" height="16" rx="3" fill="#0f172a"/>
+  <rect x="320" y="150" width="120" height="16" rx="3" fill="#0f172a"/>
+  <line x1="240" y1="150" x2="240" y2="166" stroke="#facc15" stroke-width="2"/>
+  <line x1="300" y1="150" x2="300" y2="166" stroke="#facc15" stroke-width="2"/>
+  <line x1="380" y1="150" x2="380" y2="166" stroke="#facc15" stroke-width="2"/>
+  <text x="400" y="470" font-family="Arial" font-size="26" fill="#ffffff" text-anchor="middle" font-weight="bold">EcoPower ID</text>
+</svg>
