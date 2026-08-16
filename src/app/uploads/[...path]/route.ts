@@ -43,13 +43,20 @@ export async function GET(
       if (!st.isFile()) continue;
       const buf = await readFile(filepath);
       const ext = path.extname(filepath).toLowerCase();
-      return new NextResponse(new Uint8Array(buf), {
-        headers: {
-          "Content-Type": MIME[ext] ?? "application/octet-stream",
-          "Content-Length": String(st.size),
-          "Cache-Control": "public, max-age=31536000, immutable",
-        },
-      });
+      const headers: Record<string, string> = {
+        "Content-Type": MIME[ext] ?? "application/octet-stream",
+        "Content-Length": String(st.size),
+        "Cache-Control": "public, max-age=31536000, immutable",
+        // Cegah browser menebak-nebak tipe konten (anti MIME-sniffing).
+        "X-Content-Type-Options": "nosniff",
+      };
+      // SVG (hanya file seed dari repo, upload user sudah dilarang) tetap
+      // dilayani dengan CSP sandbox agar script di dalamnya tak bisa jalan.
+      if (ext === ".svg") {
+        headers["Content-Security-Policy"] = "sandbox";
+        headers["Content-Disposition"] = "inline";
+      }
+      return new NextResponse(new Uint8Array(buf), { headers });
     } catch {
       // lanjut ke lokasi berikutnya / 404
     }

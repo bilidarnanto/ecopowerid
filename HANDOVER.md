@@ -31,7 +31,7 @@
 - WAN: `pppoe-biznet` dengan IP publik **`182.253.62.194`**; host server `192.168.100.234` (ether10).
 - Firewall input WAN = drop; forward rule accept ke host ini — sudah aman.
 
-### 1.6 Akses via Domain + Reverse Proxy Bersama ✅ (sesi ini)
+### 1.4 Akses via Domain + Reverse Proxy Bersama ✅ (sesi ini)
 Semua proyek memakai domain **`nasbpfsby.duckdns.org`** dengan port berbeda, di-proxy oleh
 container nginx bersama `nextcloud_nginx` (network `nextcloud_net`):
 
@@ -58,7 +58,7 @@ Yang dikerjakan:
   LAN resolve domain → `192.168.100.234` via DNS static router (`NAS-Local-DNS`), jadi klien
   LAN juga dapat akses (hairpin ke IP publik memang tidak aktif, sama seperti proyek lain).
 
-### 1.4 Pembersihan & Dockerisasi Penuh ✅
+### 1.5 Pembersihan & Dockerisasi Penuh ✅
 Proyek kini **100% berjalan via Docker**; tidak ada proses Node di host:
 - Dimatikan proses liar: `next-server` standalone lama (port 3100, dir `.next/standalone (deleted)`).
 - Dihapus container sampah: `ecopower-orig3` (container tes) & `ecopower-pg`
@@ -66,7 +66,7 @@ Proyek kini **100% berjalan via Docker**; tidak ada proses Node di host:
 - Dihapus image lama/rusak (`ecopower-app`, image pra-fix, build rusak).
 - Container proyek lain (karaoke, bbm, nextcloud) **tidak disentuh**.
 
-### 1.5 Perbaikan Kritis: Trace Prisma Hilang di Build Standalone ✅
+### 1.6 Perbaikan Kritis: Trace Prisma Hilang di Build Standalone ✅
 - **Gejala:** semua route API (catalog, admin) 500 di container:
   `Failed to load external module @prisma/client-2c3a283f134fdcb6: Cannot find module ...`
 - **Akar masalah:** `outputFileTracingExcludes` di `next.config.ts` berisi `"./prisma/**/*"`.
@@ -75,6 +75,28 @@ Proyek kini **100% berjalan via Docker**; tidak ada proses Node di host:
 - **Perbaikan:** hapus `"./prisma/**/*"` dari excludes (commit `ac5e7b9`). `./src/**/*` dan
   `./data/**/*` tetap dikecualikan. Komentar peringatan sudah ditulis di `next.config.ts`.
 - **⚠️ JANGAN** menambahkan `"./prisma/**/*"` ke `outputFileTracingExcludes` lagi.
+
+### 1.7 Hardening Keamanan: Rate-Limit Login & Validasi Upload Galeri ✅
+- **`src/lib/rate-limit.ts`** (baru) — rate limiter in-memory untuk login admin:
+  maks 5x gagal per 15 menit per IP, lalu lockout 15 menit (HTTP 429 + `Retry-After`,
+  `X-RateLimit-Limit/Remaining`). IP diambil dari header `X-Real-IP` yang di-set nginx
+  (tidak bisa di-spoof klien). Sweeper otomatis tiap 5 menit membuang entri basi.
+  ⚠️ In-memory → hanya cocok deployment single-container (seperti sekarang); kalau
+  nanti multi-instance, ganti dengan store bersama (Redis/Upstash).
+- **`src/lib/auth.ts`** — `checkAdminPassword` kini timing-safe
+  (`crypto.timingSafeEqual` atas hash SHA-256) → anti side-channel timing attack.
+- **`src/app/api/auth/login/route.ts`** — pakai rate limiter + delay 400ms saat
+  password salah (memperlambat brute-force, tetap <1 dtk untuk user).
+- **`src/app/api/admin/gallery/route.ts`** — validasi isi file via **magic bytes**
+  (JPG/PNG/GIF/WebP/AVIF), bukan klaim `file.type` dari klien yang bisa dipalsukan.
+  Ekstensi ditentukan dari isi file. **SVG TIDAK lagi bisa di-upload** (risiko stored
+  XSS — SVG bisa memuat `<script>`). Batas 8MB tetap.
+- **`src/app/uploads/[...path]/route.ts`** — tambah header `X-Content-Type-Options:
+  nosniff`; untuk SVG (hanya file seed dari repo) tambah `Content-Security-Policy:
+  sandbox`.
+- Verifikasi end-to-end (di container berjalan): 5x password salah → 401, ke-6 → 429
+  (password benar pun ditolak saat lockout); upload HTML palsu ber-MIME `image/jpeg`
+  → 400; upload SVG → 400; PNG asli → 200. Header `nosniff` terverifikasi pada respon.
 
 ---
 
@@ -139,8 +161,9 @@ npx tsc --noEmit
 - [x] **Domain + HTTPS** — ✅ akses publik sekarang `https://nasbpfsby.duckdns.org:8444`
       (SSL Let's Encrypt via nextcloud_nginx). Tersisa opsional: domain khusus EcoPower
       (mis. `ecopower.duckdns.org`) bila mau tanpa port.
-- [ ] **Hardening keamanan** — rate-limit endpoint login admin, validasi tipe file upload galeri,
-      security headers (CSP, HSTS), proteksi `docker-entrypoint.sh` seed agar tidak jalan tiap start.
+- [x] **Hardening keamanan** — ✅ rate-limit login (5x/15 mnt + lockout), validasi magic-bytes
+      upload galeri + larang SVG, `nosniff` di route uploads. Tersisa opsional: CSP/HSTS level
+      situs, proteksi `docker-entrypoint.sh` seed agar tidak jalan tiap start.
 - [ ] **Backup DB terjadwal** — `pg_dump` volume `pgdata` (mis. cron harian), karena data admin
       (harga, penawaran, galeri) hanya ada di DB.
 - [ ] **README** — tambahkan bagian deployment produksi (compose, router, restore backup).
@@ -157,3 +180,6 @@ npx tsc --noEmit
 | `next.config.ts` | `output: "standalone"` + `outputFileTracingExcludes` (**tanpa** `./prisma/**/*`) |
 | `src/components/VehicleSketch.tsx` | sketsa 3D isometrik configurator |
 | `src/lib/prisma.ts` | klien Prisma (jangan ubah cara importnya) |
+| `src/lib/rate-limit.ts` | rate limiter in-memory login admin (5x/15 mnt + lockout) |
+| `src/app/api/auth/login/route.ts` | login admin — rate-limit + delay anti brute-force |
+| `src/app/api/admin/gallery/route.ts` | upload galeri — validasi magic-bytes, SVG dilarang |

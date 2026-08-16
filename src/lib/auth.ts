@@ -1,6 +1,7 @@
 import { getIronSession, type SessionOptions } from "iron-session";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
+import { timingSafeEqual, createHash } from "crypto";
 
 export type SessionData = {
   isAdmin: boolean;
@@ -33,7 +34,11 @@ export async function isAdmin(): Promise<boolean> {
 export function checkAdminPassword(password: string): boolean {
   const expected = process.env.ADMIN_PASSWORD;
   if (!expected) return false;
-  return password === expected;
+  // Timing-safe compare (anti side-channel timing attack): hash SHA-256 dulu
+  // agar panjang kedua input selalu sama.
+  const ha = createHash("sha256").update(password).digest();
+  const hb = createHash("sha256").update(expected).digest();
+  return timingSafeEqual(ha, hb);
 }
 
 /** Guard untuk halaman admin — redirect ke login jika belum login */
