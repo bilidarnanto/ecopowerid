@@ -46,6 +46,9 @@ import { Vehicle3D } from "@/components/Vehicle3D";
 import { AirRenderButton } from "@/components/AiRenderButton";
 import { PackageCompareModal } from "@/components/PackageCompareModal";
 import { EnergyChart } from "@/components/EnergyChart";
+import { ProductSpecs } from "@/components/ProductSpecs";
+import { WorkProcess } from "@/components/WorkProcess";
+import { StatementOfWork } from "@/components/StatementOfWork";
 
 const STORAGE_KEY = "ecopower-config-v1";
 
@@ -921,6 +924,59 @@ export default function ConfiguratorPage() {
               <h3 className="mb-3 text-lg font-bold text-slate-900">{t.configurator.rabTitle}</h3>
               <RabTable rab={rab} />
             </div>
+
+            {/* Spesifikasi Produk Akhir */}
+            {catalog && (
+              <ProductSpecs
+                vehicleType={vehicleType ?? "campervan"}
+                packageCode={packageCode}
+                layoutCode={layoutCode}
+                materialCode={materialCode}
+                addonCodes={addonCodes}
+                includePlts={includePlts}
+                exteriorColor={exteriorColor}
+                interiorColor={interiorColor}
+                catalog={catalog}
+                lines={rab.lines}
+                weightKg={rab.totals.weightKg}
+                productionDays={productionDays}
+                warrantyMonths={warrantyMonths}
+                t={t}
+                lang={lang}
+              />
+            )}
+
+            {/* Proses Pengerjaan & Jadwal */}
+            <WorkProcess
+              vehicleType={vehicleType ?? "campervan"}
+              includePlts={includePlts}
+              addonCodes={addonCodes}
+              lines={rab.lines}
+              t={t}
+              lang={lang}
+            />
+
+            {/* Statement of Work (SOW) */}
+            {advancedBreakdown && catalog && (
+              <StatementOfWork
+                vehicleType={vehicleType ?? "campervan"}
+                packageCode={packageCode}
+                layoutCode={layoutCode}
+                materialCode={materialCode}
+                addonCodes={addonCodes}
+                includePlts={includePlts}
+                exteriorColor={exteriorColor}
+                interiorColor={interiorColor}
+                catalog={catalog}
+                lines={rab.lines}
+                state={state}
+                advancedBreakdown={advancedBreakdown}
+                productionDays={productionDays}
+                warrantyMonths={warrantyMonths}
+                t={t}
+                lang={lang}
+              />
+            )}
 
             {/* Analisis Biaya Lanjutan */}
             {advancedBreakdown && (
