@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { useI18n } from "@/lib/i18n/provider";
 import { siteConfig } from "@/lib/site-config";
 
@@ -11,10 +12,14 @@ export function Footer() {
     <footer className="border-t border-slate-200 bg-slate-900 text-slate-300 no-print">
       <div className="mx-auto grid max-w-6xl gap-10 px-4 py-12 sm:grid-cols-2 lg:grid-cols-4">
         <div>
-          <div className="flex items-center gap-2">
-            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-600 text-base text-white">
-              ☀️
-            </span>
+          <div className="flex items-center gap-2.5">
+            <Image
+              src="/logo.jpg"
+              alt={siteConfig.name}
+              width={32}
+              height={32}
+              className="h-8 w-8 rounded-lg object-cover"
+            />
             <span className="text-lg font-bold text-white">{siteConfig.name}</span>
           </div>
           <p className="mt-3 text-sm leading-relaxed text-slate-400">

@@ -42,6 +42,8 @@ import { RabTable } from "@/components/RabTable";
 import { RabPdfButton } from "@/components/RabPdfButton";
 import { QuoteModal } from "@/components/QuoteModal";
 import { VehicleSketch } from "@/components/VehicleSketch";
+import { Vehicle3D } from "@/components/Vehicle3D";
+import { AirRenderButton } from "@/components/AiRenderButton";
 import { PackageCompareModal } from "@/components/PackageCompareModal";
 import { EnergyChart } from "@/components/EnergyChart";
 
@@ -70,6 +72,7 @@ export default function ConfiguratorPage() {
   const [shareCopied, setShareCopied] = useState(false);
   const [restoredFromLink, setRestoredFromLink] = useState(false);
   const [restoredFromStorage, setRestoredFromStorage] = useState(false);
+  const [viewMode, setViewMode] = useState<"2d" | "3d">("3d");
   // Guard: autosave tidak boleh menimpa localStorage sebelum restore selesai
   const [ready, setReady] = useState(false);
 
@@ -372,18 +375,73 @@ export default function ConfiguratorPage() {
               </span>
             </div>
             <p className="mt-1 text-xs text-slate-400">{t.configurator.previewHint}</p>
-            <div className="mt-4">
-              <VehicleSketch
-                vehicleType={vehicleType}
-                packageCode={packageCode}
-                layoutCode={layoutCode}
-                materialCode={materialCode}
-                addonCodes={addonCodes}
-                includePlts={includePlts}
-                exteriorColor={exteriorColor}
-                interiorColor={interiorColor}
-              />
+            {/* View mode toggle */}
+            <div className="mt-3 flex items-center gap-1 rounded-lg bg-slate-100 p-0.5">
+              <button
+                type="button"
+                onClick={() => setViewMode("3d")}
+                className={`flex-1 rounded-md px-3 py-1.5 text-xs font-semibold transition-colors ${
+                  viewMode === "3d"
+                    ? "bg-white text-emerald-700 shadow-sm"
+                    : "text-slate-500 hover:text-slate-700"
+                }`}
+              >
+                🎮 3D Interactive
+              </button>
+              <button
+                type="button"
+                onClick={() => setViewMode("2d")}
+                className={`flex-1 rounded-md px-3 py-1.5 text-xs font-semibold transition-colors ${
+                  viewMode === "2d"
+                    ? "bg-white text-emerald-700 shadow-sm"
+                    : "text-slate-500 hover:text-slate-700"
+                }`}
+              >
+                ✏️ 2D Sketch
+              </button>
             </div>
+
+            <div className="mt-3">
+              {viewMode === "3d" ? (
+                <Vehicle3D
+                  vehicleType={vehicleType}
+                  packageCode={packageCode}
+                  layoutCode={layoutCode}
+                  materialCode={materialCode}
+                  addonCodes={addonCodes}
+                  includePlts={includePlts}
+                  exteriorColor={exteriorColor}
+                  interiorColor={interiorColor}
+                />
+              ) : (
+                <VehicleSketch
+                  vehicleType={vehicleType}
+                  packageCode={packageCode}
+                  layoutCode={layoutCode}
+                  materialCode={materialCode}
+                  addonCodes={addonCodes}
+                  includePlts={includePlts}
+                  exteriorColor={exteriorColor}
+                  interiorColor={interiorColor}
+                />
+              )}
+            </div>
+
+            {/* AI Render button */}
+            {vehicleType && (
+              <div className="mt-3">
+                <AirRenderButton
+                  vehicleType={vehicleType}
+                  packageCode={packageCode}
+                  layoutCode={layoutCode}
+                  materialCode={materialCode}
+                  addonCodes={addonCodes}
+                  includePlts={includePlts}
+                  exteriorColor={exteriorColor}
+                  interiorColor={interiorColor}
+                />
+              </div>
+            )}
 
             {vehicle && vehicleType !== "plts" && (
               <div className="mt-4 space-y-3 border-t border-slate-100 pt-3">

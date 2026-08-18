@@ -12,18 +12,20 @@ type SeedComponent = {
   specs?: Record<string, unknown>;
 };
 
-// Estimasi harga pasar Indonesia (IDR) — WAJIB diverifikasi & diperbarui admin.
+// Estimasi harga pasar Jawa Timur / Surabaya (IDR) — per Agustus 2026.
+// Sumber: Tokopedia, Lazada, Shopee, toko lokal Surabaya.
+// Harga tidak termasuk kendaraan. WAJIB diverifikasi & diperbarui admin berkala.
 const COMPONENTS: SeedComponent[] = [
-  // ===== STRUKTUR — Paket konversi =====
-  { code: "CV-PKG-STD", nameId: "Paket Konversi Campervan Standard", nameEn: "Campervan Standard Conversion Package", category: "STRUKTUR", unit: "paket", price: 45000000, specs: { weightKg: 320, workDays: 21, warrantyMonths: 12 } },
-  { code: "CV-PKG-DLX", nameId: "Paket Konversi Campervan Deluxe", nameEn: "Campervan Deluxe Conversion Package", category: "STRUKTUR", unit: "paket", price: 65000000, specs: { weightKg: 380, workDays: 28, warrantyMonths: 18 } },
-  { code: "CV-PKG-PRM", nameId: "Paket Konversi Campervan Premium", nameEn: "Campervan Premium Conversion Package", category: "STRUKTUR", unit: "paket", price: 90000000, specs: { weightKg: 450, workDays: 35, warrantyMonths: 24 } },
-  { code: "MH-PKG-STD", nameId: "Paket Konversi Motorhome Standard", nameEn: "Motorhome Standard Conversion Package", category: "STRUKTUR", unit: "paket", price: 120000000, specs: { weightKg: 700, workDays: 42, warrantyMonths: 12 } },
-  { code: "MH-PKG-DLX", nameId: "Paket Konversi Motorhome Deluxe", nameEn: "Motorhome Deluxe Conversion Package", category: "STRUKTUR", unit: "paket", price: 160000000, specs: { weightKg: 850, workDays: 56, warrantyMonths: 18 } },
-  { code: "MH-PKG-PRM", nameId: "Paket Konversi Motorhome Premium", nameEn: "Motorhome Premium Conversion Package", category: "STRUKTUR", unit: "paket", price: 210000000, specs: { weightKg: 1050, workDays: 70, warrantyMonths: 24 } },
-  { code: "FT-PKG-STD", nameId: "Paket Food Truck Standard", nameEn: "Food Truck Standard Package", category: "STRUKTUR", unit: "paket", price: 55000000, specs: { weightKg: 400, workDays: 21, warrantyMonths: 12 } },
-  { code: "FT-PKG-DLX", nameId: "Paket Food Truck Deluxe", nameEn: "Food Truck Deluxe Package", category: "STRUKTUR", unit: "paket", price: 75000000, specs: { weightKg: 480, workDays: 28, warrantyMonths: 18 } },
-  { code: "FT-PKG-PRM", nameId: "Paket Food Truck Premium", nameEn: "Food Truck Premium Package", category: "STRUKTUR", unit: "paket", price: 100000000, specs: { weightKg: 580, workDays: 35, warrantyMonths: 24 } },
+  // ===== STRUKTUR — Paket konversi (tanpa kendaraan) =====
+  { code: "CV-PKG-STD", nameId: "Paket Konversi Campervan Standard", nameEn: "Campervan Standard Conversion Package", category: "STRUKTUR", unit: "paket", price: 48000000, specs: { weightKg: 320, workDays: 21, warrantyMonths: 12 } },
+  { code: "CV-PKG-DLX", nameId: "Paket Konversi Campervan Deluxe", nameEn: "Campervan Deluxe Conversion Package", category: "STRUKTUR", unit: "paket", price: 72000000, specs: { weightKg: 380, workDays: 28, warrantyMonths: 18 } },
+  { code: "CV-PKG-PRM", nameId: "Paket Konversi Campervan Premium", nameEn: "Campervan Premium Conversion Package", category: "STRUKTUR", unit: "paket", price: 110000000, specs: { weightKg: 450, workDays: 35, warrantyMonths: 24 } },
+  { code: "MH-PKG-STD", nameId: "Paket Konversi Motorhome Standard", nameEn: "Motorhome Standard Conversion Package", category: "STRUKTUR", unit: "paket", price: 150000000, specs: { weightKg: 700, workDays: 42, warrantyMonths: 12 } },
+  { code: "MH-PKG-DLX", nameId: "Paket Konversi Motorhome Deluxe", nameEn: "Motorhome Deluxe Conversion Package", category: "STRUKTUR", unit: "paket", price: 195000000, specs: { weightKg: 850, workDays: 56, warrantyMonths: 18 } },
+  { code: "MH-PKG-PRM", nameId: "Paket Konversi Motorhome Premium", nameEn: "Motorhome Premium Conversion Package", category: "STRUKTUR", unit: "paket", price: 260000000, specs: { weightKg: 1050, workDays: 70, warrantyMonths: 24 } },
+  { code: "FT-PKG-STD", nameId: "Paket Food Truck Standard", nameEn: "Food Truck Standard Package", category: "STRUKTUR", unit: "paket", price: 58000000, specs: { weightKg: 400, workDays: 21, warrantyMonths: 12 } },
+  { code: "FT-PKG-DLX", nameId: "Paket Food Truck Deluxe", nameEn: "Food Truck Deluxe Package", category: "STRUKTUR", unit: "paket", price: 80000000, specs: { weightKg: 480, workDays: 28, warrantyMonths: 18 } },
+  { code: "FT-PKG-PRM", nameId: "Paket Food Truck Premium", nameEn: "Food Truck Premium Package", category: "STRUKTUR", unit: "paket", price: 105000000, specs: { weightKg: 580, workDays: 35, warrantyMonths: 24 } },
 
   // ===== INTERIOR — Layout & material =====
   { code: "CV-LAY-1", nameId: "Layout Dapur + Sofa (2 orang)", nameEn: "Kitchen + Sofa Layout (2 people)", category: "INTERIOR", unit: "set", price: 8000000, specs: { capacity: 2, bedSize: "120x190 cm", weightKg: 120 } },
@@ -81,17 +83,17 @@ const COMPONENTS: SeedComponent[] = [
   { code: "PLTS-PANEL-450", nameId: "Panel Surya 450Wp", nameEn: "450Wp Solar Panel", category: "PLTS_PANEL", unit: "unit", price: 2300000, specs: { wp: 450, weightKg: 24, dimsCm: "210x105x4" } },
   { code: "PLTS-PANEL-550", nameId: "Panel Surya 550Wp", nameEn: "550Wp Solar Panel", category: "PLTS_PANEL", unit: "unit", price: 2800000, specs: { wp: 550, weightKg: 28, dimsCm: "230x115x4" } },
 
-  // ===== PLTS — Baterai LiFePO4 =====
-  { code: "PLTS-BAT-100", nameId: "Baterai LiFePO4 12V 100Ah", nameEn: "LiFePO4 Battery 12V 100Ah", category: "PLTS_BATTERY", unit: "unit", price: 3800000, specs: { ah: 100, voltage: 12, weightKg: 12, cycles: 4000 } },
-  { code: "PLTS-BAT-200", nameId: "Baterai LiFePO4 12V 200Ah", nameEn: "LiFePO4 Battery 12V 200Ah", category: "PLTS_BATTERY", unit: "unit", price: 7200000, specs: { ah: 200, voltage: 12, weightKg: 22, cycles: 4000 } },
-  { code: "PLTS-BAT-300", nameId: "Baterai LiFePO4 12V 300Ah", nameEn: "LiFePO4 Battery 12V 300Ah", category: "PLTS_BATTERY", unit: "unit", price: 10500000, specs: { ah: 300, voltage: 12, weightKg: 32, cycles: 4000 } },
+  // ===== PLTS — Baterai LiFePO4 (harga pasar Surabaya Aug 2026) =====
+  { code: "PLTS-BAT-100", nameId: "Baterai LiFePO4 12V 100Ah", nameEn: "LiFePO4 Battery 12V 100Ah", category: "PLTS_BATTERY", unit: "unit", price: 2500000, specs: { ah: 100, voltage: 12, weightKg: 12, cycles: 4000 } },
+  { code: "PLTS-BAT-200", nameId: "Baterai LiFePO4 12V 200Ah", nameEn: "LiFePO4 Battery 12V 200Ah", category: "PLTS_BATTERY", unit: "unit", price: 4800000, specs: { ah: 200, voltage: 12, weightKg: 22, cycles: 4000 } },
+  { code: "PLTS-BAT-300", nameId: "Baterai LiFePO4 12V 300Ah", nameEn: "LiFePO4 Battery 12V 300Ah", category: "PLTS_BATTERY", unit: "unit", price: 7200000, specs: { ah: 300, voltage: 12, weightKg: 32, cycles: 4000 } },
 
-  // ===== PLTS — Inverter =====
-  { code: "PLTS-INV-1000", nameId: "Inverter 1000W Pure Sine", nameEn: "1000W Pure Sine Inverter", category: "PLTS_INVERTER", unit: "unit", price: 1900000, specs: { watts: 1000, voltage: 12, weightKg: 3 } },
-  { code: "PLTS-INV-1500", nameId: "Inverter 1500W Pure Sine", nameEn: "1500W Pure Sine Inverter", category: "PLTS_INVERTER", unit: "unit", price: 2600000, specs: { watts: 1500, voltage: 12, weightKg: 4 } },
-  { code: "PLTS-INV-2000", nameId: "Inverter 2000W Pure Sine", nameEn: "2000W Pure Sine Inverter", category: "PLTS_INVERTER", unit: "unit", price: 3300000, specs: { watts: 2000, voltage: 12, weightKg: 5 } },
-  { code: "PLTS-INV-3000", nameId: "Inverter 3000W Pure Sine", nameEn: "3000W Pure Sine Inverter", category: "PLTS_INVERTER", unit: "unit", price: 4800000, specs: { watts: 3000, voltage: 12, weightKg: 7 } },
-  { code: "PLTS-INV-5000", nameId: "Inverter 5000W Pure Sine", nameEn: "5000W Pure Sine Inverter", category: "PLTS_INVERTER", unit: "unit", price: 7500000, specs: { watts: 5000, voltage: 12, weightKg: 11 } },
+  // ===== PLTS — Inverter (harga pasar Surabaya Aug 2026) =====
+  { code: "PLTS-INV-1000", nameId: "Inverter 1000W Pure Sine", nameEn: "1000W Pure Sine Inverter", category: "PLTS_INVERTER", unit: "unit", price: 1500000, specs: { watts: 1000, voltage: 12, weightKg: 3 } },
+  { code: "PLTS-INV-1500", nameId: "Inverter 1500W Pure Sine", nameEn: "1500W Pure Sine Inverter", category: "PLTS_INVERTER", unit: "unit", price: 2200000, specs: { watts: 1500, voltage: 12, weightKg: 4 } },
+  { code: "PLTS-INV-2000", nameId: "Inverter 2000W Pure Sine", nameEn: "2000W Pure Sine Inverter", category: "PLTS_INVERTER", unit: "unit", price: 2800000, specs: { watts: 2000, voltage: 12, weightKg: 5 } },
+  { code: "PLTS-INV-3000", nameId: "Inverter 3000W Pure Sine", nameEn: "3000W Pure Sine Inverter", category: "PLTS_INVERTER", unit: "unit", price: 4200000, specs: { watts: 3000, voltage: 12, weightKg: 7 } },
+  { code: "PLTS-INV-5000", nameId: "Inverter 5000W Pure Sine", nameEn: "5000W Pure Sine Inverter", category: "PLTS_INVERTER", unit: "unit", price: 6500000, specs: { watts: 5000, voltage: 12, weightKg: 11 } },
 
   // ===== PLTS — Solar charge controller (MPPT) =====
   { code: "PLTS-SCC-30", nameId: "SCC MPPT 30A", nameEn: "MPPT SCC 30A", category: "PLTS_SCC", unit: "unit", price: 1400000, specs: { amps: 30, voltage: 12, weightKg: 1 } },

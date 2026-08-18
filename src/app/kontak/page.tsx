@@ -10,7 +10,7 @@ export default function ContactPage() {
   const cards = [
     { icon: "💬", label: t.contact.whatsapp, value: siteConfig.phone, href: wa },
     { icon: "✉️", label: t.contact.email, value: siteConfig.email, href: `mailto:${siteConfig.email}` },
-    { icon: "📍", label: t.contact.address, value: lang === "id" ? siteConfig.addressId : siteConfig.addressEn },
+    { icon: "📍", label: t.contact.address, value: lang === "id" ? siteConfig.addressId : siteConfig.addressEn, href: siteConfig.mapsUrl },
   ];
 
   return (
@@ -44,6 +44,20 @@ export default function ContactPage() {
       <div className="mt-6 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
         <h3 className="font-bold text-slate-900">{t.contact.hoursTitle}</h3>
         <p className="mt-1 text-slate-700">{t.contact.hours}</p>
+      </div>
+
+      {/* Map */}
+      <div className="mt-8 overflow-hidden rounded-2xl border border-slate-200 shadow-sm">
+        <iframe
+          src="https://maps.google.com/maps?q=Perum+Permata+Indah+A9+No.10+Kolursari+Sidowayah+Bangil+Pasuruan+Jawa+Timur+67154&t=&z=15&ie=UTF8&iwloc=&output=embed"
+          width="100%"
+          height="400"
+          style={{ border: 0 }}
+          allowFullScreen={false}
+          loading="lazy"
+          referrerPolicy="no-referrer-when-downgrade"
+          title="Lokasi EcoPower"
+        />
       </div>
 
       <div className="mt-10 rounded-3xl bg-gradient-to-r from-emerald-600 to-teal-500 p-8 text-center text-white shadow-xl">

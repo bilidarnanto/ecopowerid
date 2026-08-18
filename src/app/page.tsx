@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useI18n } from "@/lib/i18n/provider";
+import { siteConfig } from "@/lib/site-config";
 
 const SERVICES = [
   { key: "campervan", emoji: "🚐", grad: "from-emerald-500 to-teal-600" },
@@ -12,6 +13,7 @@ const SERVICES = [
 
 export default function HomePage() {
   const { t } = useI18n();
+  const wa = `https://wa.me/${siteConfig.whatsapp}`;
 
   return (
     <div>
@@ -118,7 +120,7 @@ export default function HomePage() {
           <h2 className="text-2xl font-bold sm:text-3xl">{t.home.ctaTitle}</h2>
           <p className="mx-auto mt-3 max-w-xl text-emerald-50/90">{t.home.ctaSubtitle}</p>
           <a
-            href="https://wa.me/6281234567890"
+            href={wa}
             target="_blank"
             rel="noopener noreferrer"
             className="mt-6 inline-flex items-center justify-center rounded-xl bg-white px-6 py-3 font-bold text-emerald-700 shadow transition-transform hover:scale-[1.02]"

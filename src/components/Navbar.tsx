@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
 import { useI18n } from "@/lib/i18n/provider";
@@ -22,10 +23,15 @@ export function Navbar() {
   return (
     <header className="sticky top-0 z-40 border-b border-slate-200 bg-white/90 backdrop-blur no-print">
       <div className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-4 px-4">
-        <Link href="/" className="flex items-center gap-2" onClick={() => setOpen(false)}>
-          <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-600 text-lg text-white">
-            ☀️
-          </span>
+        <Link href="/" className="flex items-center gap-2.5" onClick={() => setOpen(false)}>
+          <Image
+            src="/logo.jpg"
+            alt={siteConfig.name}
+            width={36}
+            height={36}
+            className="h-9 w-9 rounded-xl object-cover"
+            priority
+          />
           <span className="text-lg font-bold tracking-tight text-slate-900">
             {siteConfig.name}
           </span>
