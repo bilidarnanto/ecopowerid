@@ -64,6 +64,278 @@ export type RabTotals = {
   weightKg: number;
 };
 
+// ------------------------------------------------------------------
+// Peningkatan Algoritma RAB: Analisis Biaya Lanjutan
+// ------------------------------------------------------------------
+
+/** Faktor kerumitan proyek (0.8 — 1.3) */
+export type ComplexityResult = {
+  score: number;
+  label: string;
+  description: string;
+};
+
+/** Breakdown biaya lanjutan */
+export type AdvancedCostBreakdown = {
+  /** Biaya material dasar */
+  baseMaterialCost: number;
+  /** Faktor material waste per kategori */
+  materialWaste: {
+    struktur: number;
+    interior: number;
+    peralatan: number;
+    plumbing: number;
+    totalWasteCost: number;
+    wastePctAvg: number;
+  };
+  /** Estimasi biaya tenaga kerja */
+  laborCost: {
+    workDays: number;
+    hourlyRate: number;
+    hoursPerDay: number;
+    totalHours: number;
+    totalCost: number;
+  };
+  /** Contingency buffer */
+  contingency: {
+    pct: number;
+    amount: number;
+    reason: string;
+  };
+  /** Diskon volume */
+  volumeDiscount: {
+    pct: number;
+    amount: number;
+    tier: string;
+  };
+  /** Skor kompleksitas */
+  complexity: ComplexityResult;
+  /** Total setelah semua kalkulasi */
+  grandTotalBeforeTax: number;
+  ppn: number;
+  grandTotal: number;
+};
+
+// Material waste factor per kategori (% material yang terbuang)
+const MATERIAL_WASTE: Record<string, number> = {
+  STRUKTUR: 0.12,   // 12% — potongan baja/aluminium
+  INTERIOR: 0.08,   // 8% — potongan plywood/HPL
+  PERALATAN: 0.03,  // 3% — barang jadi, minimal waste
+  PLTS: 0.02,       // 2% — modul standar
+  LISTRIK: 0.05,    // 5% — kabel & aksesoris
+  PLUMBING: 0.05,   // 5% — pipa & fitting
+  JASA: 0,          // 0% — jasa tidak ada waste
+};
+
+// Tarif upah per jam kerja (Rp)
+const LABOR_HOURLY_RATE = Number(process.env.RAB_LABOR_RATE ?? 75_000);
+const LABOR_HOURS_PER_DAY = 8;
+
+/** Hitung skor kompleksitas proyek */
+export function calculateComplexity(
+  vehicleType: VehicleType,
+  packageCode: string | null,
+  addonCodes: string[],
+  includePlts: boolean,
+  layoutCode: string | null
+): ComplexityResult {
+  let score = 1.0;
+  const reasons: string[] = [];
+
+  // Faktor tipe kendaraan
+  if (vehicleType === "motorhome") {
+    score += 0.15;
+    reasons.push("Motorhome lebih kompleks");
+  } else if (vehicleType === "foodtruck") {
+    score += 0.10;
+    reasons.push("Food truck butuh instalasi khusus");
+  }
+
+  // Faktor paket
+  if (packageCode?.includes("PRM")) {
+    score += 0.10;
+    reasons.push("Paket Premium");
+  } else if (packageCode?.includes("DLX")) {
+    score += 0.05;
+    reasons.push("Paket Deluxe");
+  }
+
+  // Faktor jumlah add-on (semakin banyak = semakin kompleks)
+  if (addonCodes.length >= 5) {
+    score += 0.10;
+    reasons.push(`${addonCodes.length} add-on (banyak)`);
+  } else if (addonCodes.length >= 3) {
+    score += 0.05;
+    reasons.push(`${addonCodes.length} add-on`);
+  }
+
+  // Faktor PLTS
+  if (includePlts) {
+    score += 0.08;
+    reasons.push("Instalasi PLTS");
+  }
+
+  // Faktor custom layout
+  if (layoutCode?.includes("LAY-3")) {
+    score += 0.10;
+    reasons.push("Layout custom");
+  }
+
+  // Clamp
+  score = Math.min(1.3, Math.max(0.8, score));
+
+  const label =
+    score >= 1.2 ? "Sangat Kompleks"
+    : score >= 1.1 ? "Kompleks"
+    : score >= 1.0 ? "Standar"
+    : "Sederhana";
+
+  const description =
+    reasons.length > 0 ? reasons.join(", ") : "Konfigurasi dasar";
+
+  return { score, label, description };
+}
+
+/** Hitung diskon volume berdasarkan jumlah komponen */
+export function calculateVolumeDiscount(
+  totalLines: number,
+  subtotalBeforeDiscount: number
+): { pct: number; amount: number; tier: string } {
+  // Tier berdasarkan subtotal
+  if (subtotalBeforeDiscount >= 100_000_000) {
+    return { pct: 3, amount: Math.round(subtotalBeforeDiscount * 0.03), tier: "Proyek Besar (≥Rp100jt)" };
+  }
+  if (subtotalBeforeDiscount >= 50_000_000) {
+    return { pct: 2, amount: Math.round(subtotalBeforeDiscount * 0.02), tier: "Proyek Menengah (≥Rp50jt)" };
+  }
+  if (subtotalBeforeDiscount >= 25_000_000) {
+    return { pct: 1, amount: Math.round(subtotalBeforeDiscount * 0.01), tier: "Proyek Standar (≥Rp25jt)" };
+  }
+  return { pct: 0, amount: 0, tier: "" };
+}
+
+/** Hitung biaya tenaga kerja dari workDays komponen */
+export function calculateLaborCost(
+  lines: RabLine[]
+): { workDays: number; hourlyRate: number; hoursPerDay: number; totalHours: number; totalCost: number } {
+  // Ambil workDays terbesar dari semua komponen
+  const maxWorkDays = Math.max(
+    0,
+    ...lines.map((l) =>
+      typeof l.specs?.workDays === "number" ? (l.specs.workDays as number) : 0
+    )
+  );
+  const totalHours = maxWorkDays * LABOR_HOURS_PER_DAY;
+  const totalCost = Math.round(totalHours * LABOR_HOURLY_RATE);
+  return {
+    workDays: maxWorkDays,
+    hourlyRate: LABOR_HOURLY_RATE,
+    hoursPerDay: LABOR_HOURS_PER_DAY,
+    totalHours,
+    totalCost,
+  };
+}
+
+/** Hitung material waste per kategori */
+export function calculateMaterialWaste(
+  lines: RabLine[]
+): { struktur: number; interior: number; peralatan: number; plumbing: number; totalWasteCost: number; wastePctAvg: number } {
+  const wasteByGroup: Record<string, number> = {};
+  let totalSubtotal = 0;
+
+  for (const line of lines) {
+    const wastePct = MATERIAL_WASTE[line.group] ?? 0.05;
+    const waste = Math.round(line.subtotal * wastePct);
+    wasteByGroup[line.group] = (wasteByGroup[line.group] ?? 0) + waste;
+    totalSubtotal += line.subtotal;
+  }
+
+  const totalWasteCost = Object.values(wasteByGroup).reduce((s, v) => s + v, 0);
+  const wastePctAvg = totalSubtotal > 0 ? Math.round((totalWasteCost / totalSubtotal) * 100 * 10) / 10 : 0;
+
+  return {
+    struktur: wasteByGroup["STRUKTUR"] ?? 0,
+    interior: wasteByGroup["INTERIOR"] ?? 0,
+    peralatan: wasteByGroup["PERALATAN"] ?? 0,
+    plumbing: wasteByGroup["PLUMBING"] ?? 0,
+    totalWasteCost,
+    wastePctAvg,
+  };
+}
+
+/** Hitung contingency buffer */
+export function calculateContingency(
+  subtotal: number,
+  complexity: ComplexityResult
+): { pct: number; amount: number; reason: string } {
+  // Base contingency 5%, tambah berdasarkan kompleksitas
+  let pct = 5;
+  const reasons: string[] = [];
+
+  if (complexity.score >= 1.2) {
+    pct += 3;
+    reasons.push("Kompleksitas tinggi");
+  } else if (complexity.score >= 1.1) {
+    pct += 2;
+    reasons.push("Kompleksitas sedang");
+  }
+
+  if (complexity.score < 1.0) {
+    pct -= 2;
+    reasons.push("Proyek sederhana");
+  }
+
+  pct = Math.max(3, Math.min(10, pct));
+  const amount = Math.round(subtotal * (pct / 100));
+  const reason = reasons.length > 0 ? reasons.join(", ") : "Standar industri";
+  return { pct, amount, reason };
+}
+
+/** Kalkulasi RAB lanjutan — menggabungkan semua faktor */
+export function buildAdvancedRabBreakdown(
+  lines: RabLine[],
+  state: ConfiguratorState
+): AdvancedCostBreakdown {
+  const baseMaterialCost = lines.reduce((s, l) => s + l.subtotal, 0);
+  const complexity = calculateComplexity(
+    state.vehicleType,
+    state.packageCode,
+    state.addonCodes,
+    state.includePlts,
+    state.layoutCode
+  );
+
+  const materialWaste = calculateMaterialWaste(lines);
+  const laborCost = calculateLaborCost(lines);
+  const volumeDiscount = calculateVolumeDiscount(lines.length, baseMaterialCost);
+
+  // Subtotal + waste + complexity
+  const costAfterWaste = baseMaterialCost + materialWaste.totalWasteCost;
+  const costAfterComplexity = Math.round(costAfterWaste * complexity.score);
+  const costAfterLabor = costAfterComplexity + laborCost.totalCost;
+  const costAfterDiscount = costAfterLabor - volumeDiscount.amount;
+
+  // Contingency dihitung dari subtotal setelah kompleksitas
+  const contingency = calculateContingency(costAfterComplexity, complexity);
+  const grandTotalBeforeTax = costAfterDiscount + contingency.amount;
+
+  const ppnPct = siteConfig.includePpn ? siteConfig.ppnPct : 0;
+  const ppn = Math.round(grandTotalBeforeTax * (ppnPct / 100));
+  const grandTotal = grandTotalBeforeTax + ppn;
+
+  return {
+    baseMaterialCost,
+    materialWaste,
+    laborCost,
+    contingency,
+    volumeDiscount,
+    complexity,
+    grandTotalBeforeTax,
+    ppn,
+    grandTotal,
+  };
+}
+
 export type Rab = {
   lines: RabLine[];
   totals: RabTotals;

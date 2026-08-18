@@ -22,15 +22,18 @@ import {
 import {
   buildRab,
   buildProvider,
+  buildAdvancedRabBreakdown,
   energyFromState,
   type ApplianceSelection,
   type CatalogComponent,
   type ConfiguratorState,
   type Rab,
+  type AdvancedCostBreakdown,
 } from "@/lib/rab";
 import type { Dict } from "@/lib/i18n/dictionaries";
 import { calculatePlts } from "@/lib/plts";
 import { APPLIANCE_MAP } from "@/lib/loads";
+import { siteConfig } from "@/lib/site-config";
 import { useI18n } from "@/lib/i18n/provider";
 import { formatIDR, formatNumber } from "@/lib/format";
 import { AppliancePicker } from "@/components/AppliancePicker";
@@ -196,6 +199,12 @@ export default function ConfiguratorPage() {
     return buildRab(state, provider);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [provider, packageCode, layoutCode, materialCode, addonCodes, appliances, includePlts, manualDailyWh, manualPeakW, vehicleType]);
+
+  const advancedBreakdown = useMemo(() => {
+    if (!rab) return null;
+    return buildAdvancedRabBreakdown(rab.lines, state);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rab, vehicleType, packageCode, layoutCode, materialCode, addonCodes, includePlts]);
 
   const pltsResult = useMemo(() => {
     if (!provider) return null;
@@ -855,14 +864,24 @@ export default function ConfiguratorPage() {
               <RabTable rab={rab} />
             </div>
 
+            {/* Analisis Biaya Lanjutan */}
+            {advancedBreakdown && (
+              <AdvancedCostAnalysis breakdown={advancedBreakdown} t={t} lang={lang} />
+            )}
+
             <div className="flex flex-col items-center justify-between gap-4 rounded-2xl bg-slate-900 px-6 py-5 sm:flex-row">
               <div>
                 <div className="text-xs uppercase tracking-wide text-slate-400">
                   {t.configurator.estimatedTotal}
                 </div>
                 <div className="text-3xl font-extrabold text-emerald-400">
-                  {formatIDR(rab.totals.total)}
+                  {formatIDR(advancedBreakdown?.grandTotal ?? rab.totals.total)}
                 </div>
+                {advancedBreakdown && advancedBreakdown.volumeDiscount.amount > 0 && (
+                  <div className="mt-1 text-xs text-emerald-300">
+                    🏷️ Diskon {advancedBreakdown.volumeDiscount.pct}%: −{formatIDR(advancedBreakdown.volumeDiscount.amount)}
+                  </div>
+                )}
               </div>
               <div className="flex flex-col gap-2 sm:flex-row">
                 <RabPdfButton
@@ -960,6 +979,182 @@ function SummaryItem({
     <div>
       <span className="text-slate-500">{label}: </span>
       <b className="text-slate-800">{lang === "id" ? comp.nameId : comp.nameEn}</b>
+    </div>
+  );
+}
+
+/** Panel Analisis Biaya Lanjutan — tampil di atas RAB */
+function AdvancedCostAnalysis({
+  breakdown,
+  t,
+  lang,
+}: {
+  breakdown: AdvancedCostBreakdown;
+  t: Dict;
+  lang: "id" | "en";
+}) {
+  return (
+    <div className="rounded-2xl border border-slate-200 bg-gradient-to-br from-slate-50 to-white p-6 shadow-sm">
+      <h3 className="flex items-center gap-2 text-lg font-bold text-slate-900">
+        🧮 Analisis Biaya Lanjutan
+        <span className="rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-semibold text-emerald-700">
+          {breakdown.complexity.label}
+        </span>
+      </h3>
+      <p className="mt-1 text-xs text-slate-500">{breakdown.complexity.description}</p>
+
+      <div className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        {/* Material Dasar */}
+        <CostCard
+          icon="📦"
+          label="Material Dasar"
+          value={formatIDR(breakdown.baseMaterialCost)}
+          detail="Harga komponen dari katalog"
+          color="slate"
+        />
+
+        {/* Material Waste */}
+        <CostCard
+          icon="✂️"
+          label="Material Waste"
+          value={`+${formatIDR(breakdown.materialWaste.totalWasteCost)}`}
+          detail={`Rata-rata ${breakdown.materialWaste.wastePctAvg}% per kategori`}
+          color="amber"
+          subItems={[
+            { label: "Struktur", value: `${formatIDR(breakdown.materialWaste.struktur)}` },
+            { label: "Interior", value: `${formatIDR(breakdown.materialWaste.interior)}` },
+            { label: "Peralatan", value: `${formatIDR(breakdown.materialWaste.peralatan)}` },
+            { label: "Plumbing", value: `${formatIDR(breakdown.materialWaste.plumbing)}` },
+          ]}
+        />
+
+        {/* Tenaga Kerja */}
+        <CostCard
+          icon="👷"
+          label="Biaya Tenaga Kerja"
+          value={formatIDR(breakdown.laborCost.totalCost)}
+          detail={`${breakdown.laborCost.workDays} hari × ${breakdown.laborCost.hoursPerDay} jam × Rp${breakdown.laborCost.hourlyRate.toLocaleString("id-ID")}/jam`}
+          color="sky"
+        />
+
+        {/* Contingency */}
+        <CostCard
+          icon="🛡️"
+          label="Contingency Buffer"
+          value={`+${formatIDR(breakdown.contingency.amount)}`}
+          detail={`${breakdown.contingency.pct}% — ${breakdown.contingency.reason}`}
+          color="violet"
+        />
+
+        {/* Volume Discount */}
+        <CostCard
+          icon="🏷️"
+          label="Diskon Volume"
+          value={breakdown.volumeDiscount.amount > 0 ? `−${formatIDR(breakdown.volumeDiscount.amount)}` : "—"}
+          detail={breakdown.volumeDiscount.tier || "Belum memenuhi threshold"}
+          color="emerald"
+          isDiscount
+        />
+
+        {/* Kompleksitas */}
+        <CostCard
+          icon="⚙️"
+          label="Faktor Kompleksitas"
+          value={`${breakdown.complexity.score.toFixed(2)}×`}
+          detail={`Skor ${breakdown.complexity.score >= 1.0 ? "+" : ""}${((breakdown.complexity.score - 1) * 100).toFixed(0)}% dari standar`}
+          color={breakdown.complexity.score > 1.1 ? "amber" : "slate"}
+        />
+      </div>
+
+      {/* Ringkasan Total */}
+      <div className="mt-5 rounded-xl border border-slate-200 bg-white p-4">
+        <div className="flex flex-wrap items-center justify-between gap-3 text-sm">
+          <div className="space-y-1">
+            <div className="text-slate-500">Subtotal Material</div>
+            <div className="text-slate-500">+ Material Waste</div>
+            <div className="text-slate-500">+ Kompleksitas</div>
+            <div className="text-slate-500">+ Tenaga Kerja</div>
+            {breakdown.volumeDiscount.amount > 0 && (
+              <div className="text-emerald-600">− Diskon Volume</div>
+            )}
+            {breakdown.contingency.amount > 0 && (
+              <div className="text-slate-500">+ Contingency</div>
+            )}
+            <div className="font-bold text-slate-800">Total Sebelum PPN</div>
+            {breakdown.ppn > 0 && (
+              <div className="text-slate-500">+ PPN ({siteConfig.ppnPct}%)</div>
+            )}
+            <div className="text-lg font-extrabold text-emerald-700">Grand Total</div>
+          </div>
+          <div className="space-y-1 text-right">
+            <div className="text-slate-600">{formatIDR(breakdown.baseMaterialCost)}</div>
+            <div className="text-amber-600">+{formatIDR(breakdown.materialWaste.totalWasteCost)}</div>
+            <div className="text-slate-600">×{breakdown.complexity.score.toFixed(2)}</div>
+            <div className="text-sky-600">+{formatIDR(breakdown.laborCost.totalCost)}</div>
+            {breakdown.volumeDiscount.amount > 0 && (
+              <div className="text-emerald-600">−{formatIDR(breakdown.volumeDiscount.amount)}</div>
+            )}
+            {breakdown.contingency.amount > 0 && (
+              <div className="text-violet-600">+{formatIDR(breakdown.contingency.amount)}</div>
+            )}
+            <div className="font-bold text-slate-800">{formatIDR(breakdown.grandTotalBeforeTax)}</div>
+            {breakdown.ppn > 0 && (
+              <div className="text-slate-600">{formatIDR(breakdown.ppn)}</div>
+            )}
+            <div className="text-lg font-extrabold text-emerald-700">{formatIDR(breakdown.grandTotal)}</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/** Kartu biaya dalam panel analisis */
+function CostCard({
+  icon,
+  label,
+  value,
+  detail,
+  color,
+  subItems,
+  isDiscount,
+}: {
+  icon: string;
+  label: string;
+  value: string;
+  detail: string;
+  color: "slate" | "amber" | "sky" | "violet" | "emerald";
+  subItems?: { label: string; value: string }[];
+  isDiscount?: boolean;
+}) {
+  const colorMap = {
+    slate: "border-slate-200 bg-slate-50",
+    amber: "border-amber-200 bg-amber-50",
+    sky: "border-sky-200 bg-sky-50",
+    violet: "border-violet-200 bg-violet-50",
+    emerald: "border-emerald-200 bg-emerald-50",
+  };
+  const textColor = isDiscount ? "text-emerald-700" : "text-slate-900";
+
+  return (
+    <div className={`rounded-xl border-2 p-4 ${colorMap[color]}`}
+    >
+      <div className="flex items-start justify-between">
+        <div className="text-2xl" aria-hidden>{icon}</div>
+        <div className={`text-right text-sm font-extrabold ${textColor}`}>{value}</div>
+      </div>
+      <div className="mt-2 text-sm font-bold text-slate-700">{label}</div>
+      <div className="mt-1 text-xs leading-relaxed text-slate-500">{detail}</div>
+      {subItems && subItems.length > 0 && (
+        <div className="mt-2 space-y-0.5 border-t border-slate-100 pt-2">
+          {subItems.map((item) => (
+            <div key={item.label} className="flex items-center justify-between text-[11px]">
+              <span className="text-slate-500">{item.label}</span>
+              <span className="font-medium text-slate-600">{item.value}</span>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
