@@ -52,6 +52,8 @@ import { StatementOfWork } from "@/components/StatementOfWork";
 import { LocationPicker } from "@/components/LocationPicker";
 import type { LocationInfo } from "@/lib/solar-data";
 import { getSunHoursForLocation } from "@/lib/solar-data";
+import { StickyTotalBar } from "@/components/StickyTotalBar";
+import { buildConfigMessage, buildWhatsAppUrl } from "@/lib/whatsapp";
 
 const STORAGE_KEY = "ecopower-config-v1";
 
@@ -263,6 +265,48 @@ export default function ConfiguratorPage() {
     );
   }, [rab]);
 
+  /**
+   * Buka WhatsApp berisi ringkasan konfigurasi + tautan share.
+   * Tautan share dibuat saat tombol diklik karena butuh `window`
+   * (tidak boleh dijalankan saat render/SSR).
+   */
+  function sendWhatsApp() {
+    if (!vehicle) return;
+    const pkgOption = vehicle.groups
+      .flatMap((g) => g.options)
+      .find((o) => o.code === packageCode);
+
+    const message = buildConfigMessage({
+      labels: {
+        intro: t.whatsapp.intro,
+        vehicle: t.whatsapp.vehicle,
+        package: t.whatsapp.package,
+        total: t.whatsapp.total,
+        production: t.whatsapp.production,
+        warranty: t.whatsapp.warranty,
+        location: t.whatsapp.location,
+        link: t.whatsapp.link,
+        closing: t.whatsapp.closing,
+        days: t.configurator.workDaysUnit,
+        months: t.configurator.monthsUnit,
+      },
+      vehicleLabel: lang === "id" ? vehicle.labelId : vehicle.labelEn,
+      packageLabel: pkgOption
+        ? lang === "id"
+          ? pkgOption.labelId
+          : pkgOption.labelEn
+        : null,
+      totalLabel: rab ? formatIDR(advancedBreakdown?.grandTotal ?? rab.totals.total) : null,
+      productionDays,
+      warrantyMonths,
+      locationLabel: location ? location.cityName : null,
+      peakSunHours: location ? location.avgPeakSunHours : null,
+      configurationLink: shareUrl(state, step),
+    });
+
+    window.open(buildWhatsAppUrl(message), "_blank", "noopener,noreferrer");
+  }
+
   function selectVehicle(v: VehicleType) {
     setVehicleType(v);
     setPackageCode(null);
@@ -326,7 +370,7 @@ export default function ConfiguratorPage() {
   };
 
   return (
-    <div className="mx-auto max-w-6xl px-4 py-10">
+    <div className="mx-auto max-w-6xl px-4 py-10 pb-28 lg:pb-10">
       <h1 className="text-3xl font-extrabold tracking-tight text-slate-900">
         {t.configurator.title}
       </h1>
@@ -1060,6 +1104,12 @@ export default function ConfiguratorPage() {
                   }}
                 />
                 <button
+                  onClick={sendWhatsApp}
+                  className="rounded-xl bg-[#25D366] px-5 py-2.5 text-sm font-bold text-white transition-colors hover:bg-[#1eb455]"
+                >
+                  💬 {t.configurator.sendWhatsApp}
+                </button>
+                <button
                   onClick={() => setQuoteOpen(true)}
                   className="rounded-xl bg-emerald-600 px-5 py-2.5 text-sm font-bold text-white transition-colors hover:bg-emerald-700"
                 >
@@ -1107,6 +1157,13 @@ export default function ConfiguratorPage() {
           </div>
         </div>
       )}
+
+      <StickyTotalBar
+        visible={Boolean(rab && rab.totals.total > 0) && step > 0}
+        totalLabel={rab ? formatIDR(advancedBreakdown?.grandTotal ?? rab.totals.total) : null}
+        onWhatsApp={sendWhatsApp}
+        onQuote={() => setQuoteOpen(true)}
+      />
 
       <QuoteModal
         open={quoteOpen}

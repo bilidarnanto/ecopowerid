@@ -3,6 +3,7 @@
 import { useState, type FormEvent } from "react";
 import { useI18n } from "@/lib/i18n/provider";
 import { siteConfig } from "@/lib/site-config";
+import { buildQuoteReferenceMessage, buildWhatsAppUrl } from "@/lib/whatsapp";
 import type { ConfiguratorState } from "@/lib/rab";
 
 export function QuoteModal({
@@ -62,6 +63,19 @@ export function QuoteModal({
     }
   }
 
+  /** Kirim nomor referensi + tautan penawaran ke WhatsApp bengkel. */
+  function sendReferenceWhatsApp() {
+    if (!result) return;
+    const message = buildQuoteReferenceMessage({
+      intro: t.whatsapp.quoteIntro,
+      reference: result.reference,
+      linkLabel: t.whatsapp.quoteLink,
+      link: `${window.location.origin}/penawaran/${result.id}`,
+      closing: t.whatsapp.closing,
+    });
+    window.open(buildWhatsAppUrl(message), "_blank", "noopener,noreferrer");
+  }
+
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-900/60 p-0 backdrop-blur-sm sm:items-center sm:p-4">
       <div className="max-h-[92vh] w-full max-w-lg overflow-y-auto rounded-t-2xl bg-white p-6 shadow-2xl sm:rounded-2xl">
@@ -91,6 +105,13 @@ export function QuoteModal({
               >
                 {t.configurator.rabTitle} →
               </a>
+              <button
+                type="button"
+                onClick={sendReferenceWhatsApp}
+                className="rounded-xl bg-[#25D366] px-5 py-2.5 text-sm font-bold text-white transition-colors hover:bg-[#1eb455]"
+              >
+                💬 {t.configurator.sendWhatsApp}
+              </button>
               <button
                 onClick={onClose}
                 className="rounded-xl border border-slate-300 px-5 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50"
