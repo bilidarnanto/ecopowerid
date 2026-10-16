@@ -2,6 +2,7 @@ import { siteConfig } from "./site-config";
 import { calculatePlts, pltsLinesToRab, type CatalogProvider, type PltsResult } from "./plts";
 import { APPLIANCE_MAP } from "./loads";
 import type { VehicleType } from "./configurator-data";
+import type { LocationInfo } from "./solar-data";
 
 // ------------------------------------------------------------------
 // Tipe data
@@ -34,6 +35,8 @@ export type ConfiguratorState = {
   exteriorColor?: string;
   /** Warna interior (kode ColorOption) */
   interiorColor?: string;
+  /** Lokasi instalasi PLTS (opsional) */
+  location?: LocationInfo | null;
 };
 
 export type RabLine = {
@@ -488,7 +491,12 @@ export function buildRab(
   if (state.includePlts || state.vehicleType === "plts") {
     const { dailyWh, peakW } = energyFromState(state);
     if (dailyWh > 0 && peakW > 0) {
-      const plts = calculatePlts({ dailyWh, peakW }, toPltsProvider(catalog));
+      // Gunakan sunHours dari lokasi jika tersedia, fallback ke default
+      const sunHours = state.location?.avgPeakSunHours;
+      const plts = calculatePlts(
+        { dailyWh, peakW, sunHours },
+        toPltsProvider(catalog)
+      );
       lines.push(...pltsLinesToRab(plts.lines));
     }
   }

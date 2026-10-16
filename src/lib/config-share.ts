@@ -10,6 +10,7 @@ import {
 } from "./configurator-data";
 import { APPLIANCE_MAP } from "./loads";
 import type { ApplianceSelection, ConfiguratorState } from "./rab";
+import type { LocationInfo } from "./solar-data";
 
 export type ShareableState = {
   v: VehicleType;
@@ -23,6 +24,15 @@ export type ShareableState = {
   mpw: number | null;
   ec: string | null;
   ic: string | null;
+  loc?: {
+    lat: number;
+    lon: number;
+    cid: string;
+    cn: string;
+    prov: string;
+    psh: number;
+    src: string;
+  } | null;
   s: number;
 };
 
@@ -49,6 +59,15 @@ export function serializeConfig(
     mpw: state.manualPeakW ?? null,
     ec: state.exteriorColor ?? null,
     ic: state.interiorColor ?? null,
+    loc: state.location ? {
+      lat: state.location.latitude,
+      lon: state.location.longitude,
+      cid: state.location.cityId,
+      cn: state.location.cityName,
+      prov: state.location.province,
+      psh: state.location.avgPeakSunHours,
+      src: state.location.source,
+    } : null,
     s: step,
   };
   const json = JSON.stringify(data);
@@ -89,6 +108,16 @@ export function deserializeConfig(
         typeof d.mpw === "number" && d.mpw > 0 ? Math.round(d.mpw) : undefined,
       exteriorColor: d.ec && EXT_CODES.has(d.ec) ? d.ec : undefined,
       interiorColor: d.ic && INT_CODES.has(d.ic) ? d.ic : undefined,
+      location: d.loc && typeof d.loc === "object" && typeof d.loc.lat === "number" && typeof d.loc.lon === "number" ? {
+        latitude: d.loc.lat,
+        longitude: d.loc.lon,
+        cityId: d.loc.cid ?? "",
+        cityName: d.loc.cn ?? "",
+        province: d.loc.prov ?? "",
+        avgPeakSunHours: typeof d.loc.psh === "number" ? d.loc.psh : 4.5,
+        monthlyGhi: Array(12).fill(typeof d.loc.psh === "number" ? d.loc.psh : 4.5),
+        source: d.loc.src === "api" ? "api" : "fallback",
+      } : null,
     };
     const step =
       typeof d.s === "number" && d.s >= 0 && d.s <= 4 ? Math.floor(d.s) : 0;

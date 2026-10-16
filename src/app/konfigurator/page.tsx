@@ -49,6 +49,9 @@ import { EnergyChart } from "@/components/EnergyChart";
 import { ProductSpecs } from "@/components/ProductSpecs";
 import { WorkProcess } from "@/components/WorkProcess";
 import { StatementOfWork } from "@/components/StatementOfWork";
+import { LocationPicker } from "@/components/LocationPicker";
+import type { LocationInfo } from "@/lib/solar-data";
+import { getSunHoursForLocation } from "@/lib/solar-data";
 
 const STORAGE_KEY = "ecopower-config-v1";
 
@@ -75,6 +78,7 @@ export default function ConfiguratorPage() {
   const [shareCopied, setShareCopied] = useState(false);
   const [restoredFromLink, setRestoredFromLink] = useState(false);
   const [restoredFromStorage, setRestoredFromStorage] = useState(false);
+  const [location, setLocation] = useState<LocationInfo | null>(null);
   const [viewMode, setViewMode] = useState<"2d" | "3d">("3d");
   // Guard: autosave tidak boleh menimpa localStorage sebelum restore selesai
   const [ready, setReady] = useState(false);
@@ -111,6 +115,7 @@ export default function ConfiguratorPage() {
     manualPeakW: manualPeakW ?? undefined,
     exteriorColor,
     interiorColor,
+    location,
   };
 
   // ------------------------------------------------------------------
@@ -138,6 +143,7 @@ export default function ConfiguratorPage() {
     manualPeakW,
     exteriorColor,
     interiorColor,
+    location,
     step,
   ]);
 
@@ -187,6 +193,7 @@ export default function ConfiguratorPage() {
     setManualPeakW(cfg.manualPeakW ?? null);
     setExteriorColor(cfg.exteriorColor ?? DEFAULT_EXTERIOR_COLOR);
     setInteriorColor(cfg.interiorColor ?? DEFAULT_INTERIOR_COLOR);
+    setLocation(cfg.location ?? null);
     setStep(s);
   }
 
@@ -217,9 +224,10 @@ export default function ConfiguratorPage() {
     if (!includePlts && vehicleType !== "plts") return null;
     const energy = energyFromState(state);
     if (energy.dailyWh <= 0 || energy.peakW <= 0) return null;
-    return calculatePlts({ dailyWh: energy.dailyWh, peakW: energy.peakW }, provider);
+    const sunHours = getSunHoursForLocation(location);
+    return calculatePlts({ dailyWh: energy.dailyWh, peakW: energy.peakW, sunHours }, provider);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [provider, includePlts, vehicleType, appliances, manualDailyWh, manualPeakW]);
+  }, [provider, includePlts, vehicleType, appliances, manualDailyWh, manualPeakW, location]);
 
   const vehicle = vehicleType ? VEHICLE_CONFIGS.find((v) => v.type === vehicleType) : null;
   const isPltsOnly = vehicleType === "plts";
@@ -262,7 +270,8 @@ export default function ConfiguratorPage() {
     setMaterialCode(null);
     setAddonCodes([]);
     setAppliances({});
-    setStep(v === "plts" ? 2 : 1);
+    setLocation(null);
+    setStep(v === "plts" ? 1 : 1);
   }
 
   function toggleAddon(code: string) {
@@ -273,11 +282,11 @@ export default function ConfiguratorPage() {
 
   // Validasi: langkah paket/layout/material wajib lengkap sebelum lanjut
   const stepComplete =
-    step !== 1 || Boolean(packageCode && layoutCode && materialCode);
+    step !== 1 || isPltsOnly || Boolean(packageCode && layoutCode && materialCode);
 
   function next() {
     if (!stepComplete) return;
-    if (step === 0) setStep(isPltsOnly ? 3 : 1);
+    if (step === 0) setStep(1);
     else if (step < 4) setStep(step + 1);
   }
 
@@ -294,6 +303,7 @@ export default function ConfiguratorPage() {
     setManualPeakW(null);
     setExteriorColor(DEFAULT_EXTERIOR_COLOR);
     setInteriorColor(DEFAULT_INTERIOR_COLOR);
+    setLocation(null);
     try {
       localStorage.removeItem(STORAGE_KEY);
     } catch {
@@ -301,7 +311,11 @@ export default function ConfiguratorPage() {
     }
   }
 
-  const stepLabels = STEP_KEYS.map((k) => t.configurator[k]);
+  const stepLabels = STEP_KEYS.map((k, i) => {
+    // Untuk PLTS, step 1 adalah lokasi instalasi
+    if (isPltsOnly && i === 1) return t.solar.stepLocation;
+    return t.configurator[k];
+  });
 
   const groupValue = (key: string) =>
     key === "package" ? packageCode : key === "layout" ? layoutCode : materialCode;
@@ -510,6 +524,14 @@ export default function ConfiguratorPage() {
                       {t.configurator.addOns}: {addonCodes.length}×
                     </div>
                   )}
+                  {location && (
+                    <div>
+                      📍 {t.solar.locationSelected}: {location.cityName}
+                      <span className="ml-1 text-amber-600">
+                        (☀️ {location.avgPeakSunHours} PSH)
+                      </span>
+                    </div>
+                  )}
                 </div>
               </div>
             )}
@@ -599,8 +621,41 @@ export default function ConfiguratorPage() {
           </div>
         )}
 
-        {/* STEP 1 — PAKET, LAYOUT, MATERIAL */}
-        {step === 1 && vehicle && (
+        {/* STEP 1 — PAKET, LAYOUT, MATERIAL (atau LOKASI untuk PLTS) */}
+        {step === 1 && vehicle && isPltsOnly && (
+          <div>
+            <LocationPicker value={location} onChange={setLocation} />
+            {location && (
+              <div className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 p-4">
+                <div className="flex items-center gap-2 text-sm font-bold text-emerald-800">
+                  ☀️ {t.solar.solarPotential}
+                </div>
+                <div className="mt-2 grid gap-3 sm:grid-cols-3">
+                  <div className="rounded-lg bg-white p-3 text-center">
+                    <div className="text-xs text-slate-500">{t.solar.peakSunHours}</div>
+                    <div className="text-lg font-extrabold text-amber-600">
+                      {location.avgPeakSunHours} {t.solar.hoursPerDay}
+                    </div>
+                  </div>
+                  <div className="rounded-lg bg-white p-3 text-center">
+                    <div className="text-xs text-slate-500">{t.solar.specificYield}</div>
+                    <div className="text-lg font-extrabold text-emerald-600">
+                      {(location.avgPeakSunHours * 0.75 * 1000).toFixed(0)} Wh/Wp
+                    </div>
+                    <div className="text-[10px] text-slate-400">kWh/kWp/{lang === "id" ? "hari" : "day"}</div>
+                  </div>
+                  <div className="rounded-lg bg-white p-3 text-center">
+                    <div className="text-xs text-slate-500">Sumber Data</div>
+                    <div className="text-sm font-bold text-slate-700">
+                      {location.source === "api" ? "📡 Open-Meteo API" : "📊 Estimasi"}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+        {step === 1 && vehicle && !isPltsOnly && (
           <div className="space-y-8">
             {vehicle.groups
               .filter((g) => g.key !== "addons")
@@ -803,7 +858,7 @@ export default function ConfiguratorPage() {
             {/* Sizing PLTS live — muncul langsung saat pilih peralatan */}
             {pltsResult && (
               <div className="mt-5">
-                <PltsSummary plts={pltsResult} />
+                <PltsSummary plts={pltsResult} location={location} />
               </div>
             )}
           </div>
@@ -918,7 +973,7 @@ export default function ConfiguratorPage() {
               </div>
             )}
 
-            {pltsResult && <PltsSummary plts={pltsResult} />}
+            {pltsResult && <PltsSummary plts={pltsResult} location={location} />}
 
             <div>
               <h3 className="mb-3 text-lg font-bold text-slate-900">{t.configurator.rabTitle}</h3>
